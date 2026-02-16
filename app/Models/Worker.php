@@ -65,6 +65,21 @@ class Worker extends Model
         return $this->hasMany(WorkerAvailability::class);
     }
 
+    public function payoutTransactions(): HasMany
+    {
+        return $this->hasMany(PayoutTransaction::class);
+    }
+
+    public function withdrawalRequests(): HasMany
+    {
+        return $this->hasMany(WithdrawalRequest::class);
+    }
+
+    public function orderDeclineRequests(): HasMany
+    {
+        return $this->hasMany(OrderDeclineRequest::class);
+    }
+
     public function isAvailableAt(CarbonInterface $moment): bool
     {
         $timezone = $this->timezone ?: 'UTC';

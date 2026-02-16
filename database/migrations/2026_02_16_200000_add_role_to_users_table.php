@@ -19,6 +19,17 @@ return new class extends Migration
         DB::table('users')
             ->whereNull('role')
             ->update(['role' => 'admin']);
+
+        $workerUserIds = DB::table('workers')
+            ->whereNotNull('user_id')
+            ->pluck('user_id')
+            ->all();
+
+        if (! empty($workerUserIds)) {
+            DB::table('users')
+                ->whereIn('id', $workerUserIds)
+                ->update(['role' => 'worker']);
+        }
     }
 
     /**
@@ -32,4 +43,3 @@ return new class extends Migration
         });
     }
 };
-

@@ -81,4 +81,24 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasMany(Message::class, 'sender_user_id');
     }
+
+    public function withdrawalRequests(): HasMany
+    {
+        return $this->hasMany(WithdrawalRequest::class);
+    }
+
+    public function processedWithdrawalRequests(): HasMany
+    {
+        return $this->hasMany(WithdrawalRequest::class, 'processed_by_user_id');
+    }
+
+    public function orderDeclineRequests(): HasMany
+    {
+        return $this->hasMany(OrderDeclineRequest::class);
+    }
+
+    public function processedOrderDeclineRequests(): HasMany
+    {
+        return $this->hasMany(OrderDeclineRequest::class, 'processed_by_user_id');
+    }
 }

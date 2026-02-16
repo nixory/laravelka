@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
@@ -74,6 +75,16 @@ class Order extends Model
     public function calendarSlot(): HasOne
     {
         return $this->hasOne(CalendarSlot::class);
+    }
+
+    public function payoutTransactions(): HasMany
+    {
+        return $this->hasMany(PayoutTransaction::class);
+    }
+
+    public function declineRequests(): HasMany
+    {
+        return $this->hasMany(OrderDeclineRequest::class);
     }
 
     public function isAutoAssignable(): bool
