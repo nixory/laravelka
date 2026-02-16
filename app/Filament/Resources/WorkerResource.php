@@ -72,6 +72,27 @@ class WorkerResource extends Resource
                             ->required(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id'))
                             ->dehydrated(false)
                             ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id')),
+                        Forms\Components\TextInput::make('current_account_email')
+                            ->label('Current login email')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->formatStateUsing(fn (?Worker $record): string => (string) ($record?->user?->email ?? 'No linked account'))
+                            ->visible(fn (string $operation): bool => $operation === 'edit'),
+                        Forms\Components\TextInput::make('new_account_password')
+                            ->label('New password')
+                            ->password()
+                            ->revealable()
+                            ->minLength(8)
+                            ->same('new_account_password_confirmation')
+                            ->dehydrated(false)
+                            ->visible(fn (string $operation): bool => $operation === 'edit'),
+                        Forms\Components\TextInput::make('new_account_password_confirmation')
+                            ->label('Confirm new password')
+                            ->password()
+                            ->revealable()
+                            ->minLength(8)
+                            ->dehydrated(false)
+                            ->visible(fn (string $operation): bool => $operation === 'edit'),
                     ])
                     ->columnSpanFull(),
                 Forms\Components\TextInput::make('display_name')
