@@ -28,10 +28,16 @@ class WooWebhookController extends Controller
         ]);
 
         $billing = $raw['billing'] ?? [];
-        $lineItems = collect($raw['line_items'] ?? [])->pluck('name')->filter()->values()->implode(', ');
+        $lineItemsRaw = collect($raw['line_items'] ?? [])->values();
+        $lineItems = $lineItemsRaw->pluck('name')->filter()->values()->implode(', ');
         $wooStatus = (string) ($raw['status'] ?? 'pending');
 
         $clientName = trim((($billing['first_name'] ?? '').' '.($billing['last_name'] ?? '')));
+
+        $selectedWorkerId = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['ID работницы', 'worker_id', 'booking_worker_id']);
+        $sessionDate = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['Дата сессии', 'booking_date']);
+        $sessionTimeRange = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['Время сессии', 'booking_time']);
+        [$sessionStartFromRange, $sessionEndFromRange] = $this->parseSessionRange($sessionDate, $sessionTimeRange);
 
         $order->fill([
             'client_name' => $clientName !== '' ? $clientName : ($billing['email'] ?? 'Woo Client'),
@@ -39,8 +45,8 @@ class WooWebhookController extends Controller
             'client_email' => $billing['email'] ?? null,
             'service_name' => $lineItems !== '' ? $lineItems : 'Woo service',
             'service_price' => (float) ($raw['total'] ?? 0),
-            'starts_at' => $this->parseDate($this->extractMetaValue($raw, ['starts_at', 'service_start', 'appointment_start'])),
-            'ends_at' => $this->parseDate($this->extractMetaValue($raw, ['ends_at', 'service_end', 'appointment_end'])),
+            'starts_at' => $sessionStartFromRange ?: $this->parseDate($this->extractMetaValue($raw, ['starts_at', 'service_start', 'appointment_start'])),
+            'ends_at' => $sessionEndFromRange ?: $this->parseDate($this->extractMetaValue($raw, ['ends_at', 'service_end', 'appointment_end'])),
             'meta' => [
                 'woo_status' => $wooStatus,
                 'currency' => $raw['currency'] ?? null,
@@ -51,6 +57,10 @@ class WooWebhookController extends Controller
 
         if (! $order->exists) {
             $order->status = Order::STATUS_NEW;
+        }
+
+        if (is_numeric($selectedWorkerId)) {
+            $order->worker_id = (int) $selectedWorkerId;
         }
 
         if (in_array($wooStatus, ['cancelled', 'failed', 'refunded'], true)) {
@@ -111,6 +121,51 @@ class WooWebhookController extends Controller
         }
 
         return null;
+    }
+
+    private function extractLineItemMetaValue(array $lineItems, array $keys): mixed
+    {
+        foreach ($lineItems as $lineItem) {
+            $meta = $lineItem['meta'] ?? null;
+            if (! is_array($meta)) {
+                continue;
+            }
+
+            foreach ($keys as $key) {
+                if (array_key_exists($key, $meta) && $meta[$key] !== null && $meta[$key] !== '') {
+                    return $meta[$key];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function parseSessionRange(mixed $date, mixed $timeRange): array
+    {
+        if (! is_string($date) || trim($date) === '') {
+            return [null, null];
+        }
+        if (! is_string($timeRange) || trim($timeRange) === '') {
+            return [null, null];
+        }
+
+        if (! preg_match('/^\\s*(\\d{1,2}:\\d{2})\\s*-\\s*(\\d{1,2}:\\d{2})\\s*$/', $timeRange, $matches)) {
+            return [null, null];
+        }
+
+        try {
+            $start = Carbon::parse(trim($date).' '.trim($matches[1]));
+            $end = Carbon::parse(trim($date).' '.trim($matches[2]));
+
+            if ($end->lessThanOrEqualTo($start)) {
+                $end = $end->copy()->addDay();
+            }
+
+            return [$start, $end];
+        } catch (\Throwable) {
+            return [null, null];
+        }
     }
 
     private function parseDate(mixed $value): ?Carbon
