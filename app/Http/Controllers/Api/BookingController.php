@@ -23,10 +23,14 @@ class BookingController extends Controller
 
         $worker = Worker::query()->with(['availabilities' => fn ($q) => $q->where('is_active', true)])->findOrFail((int) $data['worker_id']);
         $date = (string) $data['date'];
-        $slots = $this->buildSlotsForDate($worker, $date);
+        $slots = $this->buildSlotsFromCalendarTable($worker, $date);
 
-        foreach ($slots as &$slot) {
-            $slot['available'] = ! $this->isSlotBlocked($worker->id, $date, $slot['start'], $slot['end']);
+        if (count($slots) === 0) {
+            $slots = $this->buildSlotsForDate($worker, $date);
+
+            foreach ($slots as &$slot) {
+                $slot['available'] = ! $this->isSlotBlocked($worker->id, $date, $slot['start'], $slot['end']);
+            }
         }
 
         return response()->json([
@@ -222,6 +226,47 @@ class BookingController extends Controller
         usort($slots, fn ($a, $b) => strcmp($a['start'], $b['start']));
 
         return array_values(array_map('unserialize', array_unique(array_map('serialize', $slots))));
+    }
+
+    private function buildSlotsFromCalendarTable(Worker $worker, string $date): array
+    {
+        $timezone = $worker->timezone ?: 'UTC';
+        $dayStartLocal = Carbon::createFromFormat('Y-m-d', $date, $timezone)->startOfDay();
+        $dayEndLocal = $dayStartLocal->copy()->endOfDay();
+
+        $rows = CalendarSlot::query()
+            ->where('worker_id', $worker->id)
+            ->where('starts_at', '>=', $dayStartLocal->copy()->utc())
+            ->where('starts_at', '<=', $dayEndLocal->copy()->utc())
+            ->orderBy('starts_at')
+            ->get(['starts_at', 'ends_at', 'status']);
+
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $slots = [];
+        foreach ($rows as $row) {
+            $startLocal = $row->starts_at->copy()->setTimezone($timezone);
+            $endLocal = $row->ends_at->copy()->setTimezone($timezone);
+
+            $start = $startLocal->format('H:i');
+            $end = $endLocal->format('H:i');
+            $slotDate = $startLocal->format('Y-m-d');
+
+            $isAvailable = $row->status === 'available'
+                && ! Cache::has($this->holdSlotKey($worker->id, $slotDate, $start, $end));
+
+            $slots[] = [
+                'start' => $start,
+                'end' => $end,
+                'date' => $slotDate,
+                'label' => $start.' - '.$end,
+                'available' => $isAvailable,
+            ];
+        }
+
+        return $slots;
     }
 
     private function isSlotBlocked(int $workerId, string $date, string $start, string $end): bool
