@@ -13,6 +13,9 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements FilamentUser
 {
+    public const ROLE_ADMIN = 'admin';
+    public const ROLE_WORKER = 'worker';
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
@@ -25,6 +28,7 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
@@ -52,7 +56,15 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return true;
+        if ($panel->getId() === 'admin') {
+            return $this->role === self::ROLE_ADMIN;
+        }
+
+        if ($panel->getId() === 'worker') {
+            return $this->role === self::ROLE_WORKER && $this->workerProfile()->exists();
+        }
+
+        return false;
     }
 
     public function workerProfile(): HasOne

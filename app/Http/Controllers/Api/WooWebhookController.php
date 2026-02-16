@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CalendarSlot;
 use App\Models\Order;
 use App\Services\OrderAssignmentService;
 use Carbon\Carbon;
@@ -73,6 +74,8 @@ class WooWebhookController extends Controller
         if ($order->isAutoAssignable()) {
             $assignmentService->assign($order->fresh());
         }
+
+        $this->syncCalendarSlotForWooStatus($order, $wooStatus);
 
         return response()->json([
             'ok' => true,
@@ -178,6 +181,37 @@ class WooWebhookController extends Controller
             return Carbon::parse($value);
         } catch (\Throwable) {
             return null;
+        }
+    }
+
+    private function syncCalendarSlotForWooStatus(Order $order, string $wooStatus): void
+    {
+        if (! $order->worker_id || ! $order->starts_at || ! $order->ends_at) {
+            return;
+        }
+
+        if (in_array($wooStatus, ['processing', 'completed'], true)) {
+            CalendarSlot::query()->updateOrCreate(
+                ['order_id' => $order->id],
+                [
+                    'worker_id' => $order->worker_id,
+                    'starts_at' => $order->starts_at,
+                    'ends_at' => $order->ends_at,
+                    'status' => 'booked',
+                    'source' => 'order',
+                ]
+            );
+            return;
+        }
+
+        if (in_array($wooStatus, ['cancelled', 'failed', 'refunded'], true)) {
+            CalendarSlot::query()
+                ->where('order_id', $order->id)
+                ->update([
+                    'status' => 'available',
+                    'order_id' => null,
+                    'source' => 'manual',
+                ]);
         }
     }
 }

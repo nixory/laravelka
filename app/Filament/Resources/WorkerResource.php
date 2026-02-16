@@ -3,9 +3,11 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\WorkerResource\Pages;
+use App\Models\User;
 use App\Models\Worker;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Filters\SelectFilter;
@@ -28,7 +30,50 @@ class WorkerResource extends Resource
                 Forms\Components\Select::make('user_id')
                     ->relationship('user', 'email')
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->helperText('Можно выбрать существующий аккаунт или создать новый ниже.'),
+                Forms\Components\Section::make('Worker account')
+                    ->description('Данные для входа работницы в личный кабинет.')
+                    ->schema([
+                        Forms\Components\Toggle::make('create_user_account')
+                            ->label('Create login account')
+                            ->default(true)
+                            ->live()
+                            ->dehydrated(true)
+                            ->visible(fn (string $operation): bool => $operation === 'create'),
+                        Forms\Components\TextInput::make('account_name')
+                            ->label('Account name')
+                            ->maxLength(255)
+                            ->default(fn (Get $get): string => (string) ($get('display_name') ?? ''))
+                            ->dehydrated(true)
+                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id')),
+                        Forms\Components\TextInput::make('account_email')
+                            ->label('Login email')
+                            ->email()
+                            ->maxLength(255)
+                            ->unique(User::class, 'email')
+                            ->required(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id'))
+                            ->dehydrated(true)
+                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id')),
+                        Forms\Components\TextInput::make('account_password')
+                            ->label('Password')
+                            ->password()
+                            ->revealable()
+                            ->minLength(8)
+                            ->same('account_password_confirmation')
+                            ->required(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id'))
+                            ->dehydrated(true)
+                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id')),
+                        Forms\Components\TextInput::make('account_password_confirmation')
+                            ->label('Confirm password')
+                            ->password()
+                            ->revealable()
+                            ->minLength(8)
+                            ->required(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id'))
+                            ->dehydrated(false)
+                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id')),
+                    ])
+                    ->columnSpanFull(),
                 Forms\Components\TextInput::make('display_name')
                     ->required()
                     ->maxLength(255),
