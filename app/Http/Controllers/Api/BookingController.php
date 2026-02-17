@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Cache;
 
 class BookingController extends Controller
 {
+    private const DISPLAY_TIMEZONE = 'Europe/Moscow';
+
     public function slots(Request $request): JsonResponse
     {
         $this->authorizeRequest($request);
@@ -45,11 +47,11 @@ class BookingController extends Controller
             ->with(['availabilities' => fn ($q) => $q->where('is_active', true)])
             ->findOrFail((int) $data['worker_id']);
 
-        $from = (string) ($data['from'] ?? now('UTC')->format('Y-m-d'));
+        $from = (string) ($data['from'] ?? now(self::DISPLAY_TIMEZONE)->format('Y-m-d'));
         $days = (int) ($data['days'] ?? 30);
 
         $calendar = [];
-        $cursor = Carbon::createFromFormat('Y-m-d', $from, 'UTC')->startOfDay();
+        $cursor = Carbon::createFromFormat('Y-m-d', $from, self::DISPLAY_TIMEZONE)->startOfDay();
 
         for ($i = 0; $i < $days; $i++) {
             $date = $cursor->copy()->addDays($i)->format('Y-m-d');
@@ -152,8 +154,8 @@ class BookingController extends Controller
             return response()->json(['ok' => false, 'message' => 'Worker not found.'], 404);
         }
 
-        $startsAt = Carbon::parse($payload['date'].' '.$payload['start'], $worker->timezone ?: 'UTC')->utc();
-        $endsAt = Carbon::parse($payload['date'].' '.$payload['end'], $worker->timezone ?: 'UTC')->utc();
+        $startsAt = Carbon::parse($payload['date'].' '.$payload['start'], self::DISPLAY_TIMEZONE)->utc();
+        $endsAt = Carbon::parse($payload['date'].' '.$payload['end'], self::DISPLAY_TIMEZONE)->utc();
 
         $slot = CalendarSlot::query()->firstOrNew([
             'worker_id' => (int) $payload['worker_id'],
@@ -224,7 +226,7 @@ class BookingController extends Controller
 
     private function buildSlotsForDate(Worker $worker, string $date): array
     {
-        $timezone = $worker->timezone ?: 'UTC';
+        $timezone = self::DISPLAY_TIMEZONE;
         $localDate = Carbon::createFromFormat('Y-m-d', $date, $timezone);
         $dayOfWeek = $localDate->dayOfWeek;
 
@@ -264,7 +266,7 @@ class BookingController extends Controller
 
     private function buildSlotsFromCalendarTable(Worker $worker, string $date): array
     {
-        $timezone = $worker->timezone ?: 'UTC';
+        $timezone = self::DISPLAY_TIMEZONE;
         $dayStartLocal = Carbon::createFromFormat('Y-m-d', $date, $timezone)->startOfDay();
         $nextDayStartLocal = $dayStartLocal->copy()->addDay();
 
@@ -357,7 +359,7 @@ class BookingController extends Controller
             return true;
         }
 
-        $timezone = $worker->timezone ?: 'UTC';
+        $timezone = self::DISPLAY_TIMEZONE;
         $startsAt = Carbon::parse($date.' '.$start, $timezone)->utc();
         $endsAt = Carbon::parse($date.' '.$end, $timezone)->utc();
 
