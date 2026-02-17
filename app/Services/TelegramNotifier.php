@@ -233,21 +233,21 @@ class TelegramNotifier
 
     private function adminOrderUrl(Order $order): string
     {
-        return rtrim((string) config('services.telegram.admin_panel_url'), '/')."/orders/{$order->id}/view";
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/')."/tg/admin/orders/{$order->id}";
     }
 
     private function adminWithdrawalUrl(WithdrawalRequest $request): string
     {
-        return rtrim((string) config('services.telegram.admin_panel_url'), '/')."/withdrawal-requests/{$request->id}/edit";
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/')."/tg/admin/withdrawals/{$request->id}";
     }
 
     private function adminDeclineUrl(OrderDeclineRequest $request): string
     {
-        return rtrim((string) config('services.telegram.admin_panel_url'), '/')."/order-decline-requests/{$request->id}/edit";
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/')."/tg/admin/declines/{$request->id}";
     }
 
     private function workerOrderUrl(Order $order): string
     {
-        return rtrim((string) config('services.telegram.worker_panel_url'), '/')."/orders/{$order->id}";
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/')."/tg/worker/orders/{$order->id}";
     }
 }
