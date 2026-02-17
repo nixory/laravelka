@@ -18,6 +18,7 @@ class Worker extends Model
         'slug',
         'phone',
         'telegram',
+        'telegram_chat_id',
         'city',
         'timezone',
         'status',

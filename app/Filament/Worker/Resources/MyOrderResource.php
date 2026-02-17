@@ -5,6 +5,7 @@ namespace App\Filament\Worker\Resources;
 use App\Filament\Worker\Resources\MyOrderResource\Pages;
 use App\Models\Order;
 use App\Models\OrderDeclineRequest;
+use App\Services\TelegramNotifier;
 use Filament\Actions\Action as HeaderAction;
 use Filament\Facades\Filament;
 use Filament\Forms;
@@ -213,6 +214,8 @@ class MyOrderResource extends Resource
                     'accepted_at' => now(),
                 ])->save();
 
+                app(TelegramNotifier::class)->notifyAdminWorkerAccepted($record->fresh(['worker']));
+
                 Notification::make()
                     ->title('Заказ принят')
                     ->success()
@@ -266,8 +269,10 @@ class MyOrderResource extends Resource
                     return;
                 }
 
-                DB::transaction(function () use ($record, $data, $worker, $user): void {
-                    OrderDeclineRequest::query()->create([
+                $declineRequest = null;
+
+                DB::transaction(function () use ($record, $data, $worker, $user, &$declineRequest): void {
+                    $declineRequest = OrderDeclineRequest::query()->create([
                         'order_id' => $record->id,
                         'worker_id' => $worker->id,
                         'user_id' => $user->id,
@@ -283,6 +288,13 @@ class MyOrderResource extends Resource
                         'accepted_at' => null,
                     ])->save();
                 });
+
+                if ($declineRequest instanceof OrderDeclineRequest) {
+                    app(TelegramNotifier::class)->notifyAdminWorkerDeclined(
+                        $record->fresh(['worker']),
+                        $declineRequest->fresh(['worker'])
+                    );
+                }
 
                 Notification::make()
                     ->title('Запрос отправлен, заказ откреплен')

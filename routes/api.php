@@ -10,6 +10,9 @@ Route::post('/integrations/woo/order-created', [WooWebhookController::class, 'or
 Route::post('/integrations/woo/order-updated', [WooWebhookController::class, 'orderCreated'])
     ->middleware('throttle:60,1');
 
+Route::post('/integrations/woo/report-failure', [WooWebhookController::class, 'reportFailure'])
+    ->middleware('throttle:60,1');
+
 Route::get('/bookings/slots', [BookingController::class, 'slots'])
     ->middleware('throttle:120,1');
 

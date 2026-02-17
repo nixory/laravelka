@@ -6,13 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\CalendarSlot;
 use App\Models\Order;
 use App\Services\OrderAssignmentService;
+use App\Services\TelegramNotifier;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class WooWebhookController extends Controller
 {
-    public function orderCreated(Request $request, OrderAssignmentService $assignmentService): JsonResponse
+    public function orderCreated(
+        Request $request,
+        OrderAssignmentService $assignmentService,
+        TelegramNotifier $telegramNotifier
+    ): JsonResponse
     {
         $this->authorizeRequest($request);
 
@@ -27,6 +32,7 @@ class WooWebhookController extends Controller
             'external_source' => 'woocommerce',
             'external_order_id' => $externalOrderId,
         ]);
+        $previousWooStatus = (string) data_get($order->meta ?? [], 'woo_status', '');
 
         $billing = $raw['billing'] ?? [];
         $lineItemsRaw = collect($raw['line_items'] ?? [])->values();
@@ -86,11 +92,35 @@ class WooWebhookController extends Controller
 
         $this->syncCalendarSlotForWooStatus($order, $wooStatus);
 
+        if ($wooStatus === 'processing' && $previousWooStatus !== 'processing') {
+            $telegramNotifier->notifyAdminNewProcessingOrder($order->fresh(['worker']));
+        }
+
         return response()->json([
             'ok' => true,
             'order_id' => $order->id,
             'status' => $order->status,
             'worker_id' => $order->worker_id,
+        ]);
+    }
+
+    public function reportFailure(Request $request, TelegramNotifier $telegramNotifier): JsonResponse
+    {
+        $this->authorizeRequest($request);
+
+        $payload = $request->validate([
+            'event' => ['nullable', 'string', 'max:100'],
+            'order_id' => ['nullable'],
+            'attempt' => ['nullable'],
+            'http_code' => ['nullable'],
+            'error' => ['nullable', 'string'],
+            'response_body' => ['nullable', 'string'],
+        ]);
+
+        $telegramNotifier->notifyAdminWebhookFailed($payload);
+
+        return response()->json([
+            'ok' => true,
         ]);
     }
 

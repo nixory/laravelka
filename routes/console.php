@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('ops:assign-pending-orders --limit=100')->everyMinute();
+Schedule::command('ops:dispatch-alerts')->everyMinute();

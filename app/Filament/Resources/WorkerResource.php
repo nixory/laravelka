@@ -107,6 +107,10 @@ class WorkerResource extends Resource
                     ->maxLength(255),
                 Forms\Components\TextInput::make('telegram')
                     ->maxLength(255),
+                Forms\Components\TextInput::make('telegram_chat_id')
+                    ->label('Telegram chat ID')
+                    ->helperText('Сюда вставляй numeric chat_id для уведомлений бота, например 123456789 или -100...')
+                    ->maxLength(255),
                 Forms\Components\TextInput::make('city')
                     ->maxLength(255),
                 Forms\Components\Select::make('timezone')
@@ -200,6 +204,9 @@ class WorkerResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('phone')
                     ->searchable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('telegram_chat_id')
+                    ->label('TG chat ID')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('rating')
                     ->numeric(decimalPlaces: 2)

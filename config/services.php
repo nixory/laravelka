@@ -44,4 +44,11 @@ return [
         'worker_telegram_url' => env('WORKER_SUPPORT_TELEGRAM_URL', 'https://t.me/egirlz_support'),
     ],
 
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'admin_chat_id' => env('TELEGRAM_ADMIN_CHAT_ID'),
+        'admin_panel_url' => env('TELEGRAM_ADMIN_PANEL_URL', 'https://ops.egirlz.chat/admin'),
+        'worker_panel_url' => env('TELEGRAM_WORKER_PANEL_URL', 'https://ops.egirlz.chat/worker'),
+    ],
+
 ];

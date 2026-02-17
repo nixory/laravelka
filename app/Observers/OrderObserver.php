@@ -5,22 +5,38 @@ namespace App\Observers;
 use App\Models\Order;
 use App\Models\PayoutTransaction;
 use App\Services\OrderAssignmentService;
+use App\Services\TelegramNotifier;
 
 class OrderObserver
 {
-    public function __construct(private readonly OrderAssignmentService $assignmentService)
+    public function __construct(
+        private readonly OrderAssignmentService $assignmentService,
+        private readonly TelegramNotifier $telegramNotifier
+    )
     {
     }
 
     public function created(Order $order): void
     {
         $this->assignmentService->assign($order);
+
+        if ($order->worker_id && $order->status === Order::STATUS_ASSIGNED) {
+            $this->telegramNotifier->notifyWorkerNewOrder($order->fresh(['worker']));
+        }
     }
 
     public function updated(Order $order): void
     {
         if ($order->isAutoAssignable() && ($order->wasChanged('status') || $order->wasChanged('worker_id'))) {
             $this->assignmentService->assign($order);
+        }
+
+        if (
+            ($order->wasChanged('worker_id') || $order->wasChanged('status'))
+            && $order->worker_id
+            && $order->status === Order::STATUS_ASSIGNED
+        ) {
+            $this->telegramNotifier->notifyWorkerNewOrder($order->fresh(['worker']));
         }
 
         if ($order->wasChanged('status') && $order->status === Order::STATUS_DONE) {

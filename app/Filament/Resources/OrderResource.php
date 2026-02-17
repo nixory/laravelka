@@ -90,7 +90,15 @@ class OrderResource extends Resource
                         return implode("\n", $parts);
                     })
                     ->columnSpanFull(),
-                Forms\Components\KeyValue::make('meta')
+                Forms\Components\Textarea::make('meta_json_readonly')
+                    ->label('Meta (read-only JSON)')
+                    ->formatStateUsing(fn (?Order $record): string => json_encode(
+                        $record?->meta ?? [],
+                        JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                    ) ?: '{}')
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->rows(18)
                     ->columnSpanFull(),
             ]);
     }
