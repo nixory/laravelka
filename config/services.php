@@ -40,4 +40,8 @@ return [
         'webhook_token' => env('WOO_WEBHOOK_TOKEN'),
     ],
 
+    'support' => [
+        'worker_telegram_url' => env('WORKER_SUPPORT_TELEGRAM_URL', 'https://t.me/egirlz_support'),
+    ],
+
 ];

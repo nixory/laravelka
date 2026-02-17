@@ -7,6 +7,8 @@ use App\Models\Order;
 use App\Services\OrderAssignmentService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -71,9 +73,113 @@ class OrderResource extends Resource
                 Forms\Components\DateTimePicker::make('accepted_at'),
                 Forms\Components\DateTimePicker::make('completed_at'),
                 Forms\Components\DateTimePicker::make('cancelled_at'),
+                Forms\Components\Placeholder::make('woo_summary')
+                    ->label('Woo details')
+                    ->content(function (?Order $record): string {
+                        if (! $record) {
+                            return 'Сохраните заказ, чтобы увидеть детали.';
+                        }
+
+                        $parts = [];
+                        $parts[] = 'План: '.($record->wooPlan() ?: '-');
+                        $parts[] = 'Часы: '.($record->wooHours() ?: '-');
+                        $parts[] = 'Доп услуги: '.($record->wooAddons() ?: '-');
+                        $parts[] = 'Telegram: '.($record->wooClientTelegram() ?: '-');
+                        $parts[] = 'Discord: '.($record->wooClientDiscord() ?: '-');
+
+                        return implode("\n", $parts);
+                    })
+                    ->columnSpanFull(),
                 Forms\Components\KeyValue::make('meta')
                     ->columnSpanFull(),
             ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist->schema([
+            Infolists\Components\Section::make('Клиент')
+                ->schema([
+                    Infolists\Components\TextEntry::make('client_name')->label('Имя'),
+                    Infolists\Components\TextEntry::make('client_email')->label('Email')->placeholder('-'),
+                    Infolists\Components\TextEntry::make('client_phone')->label('Телефон')->placeholder('-'),
+                    Infolists\Components\TextEntry::make('wooClientTelegram')
+                        ->label('Telegram')
+                        ->state(fn (Order $record): string => $record->wooClientTelegram() ?: '-'),
+                    Infolists\Components\TextEntry::make('wooClientDiscord')
+                        ->label('Discord')
+                        ->state(fn (Order $record): string => $record->wooClientDiscord() ?: '-'),
+                    Infolists\Components\TextEntry::make('wooDesiredDateTime')
+                        ->label('Желаемая дата/время')
+                        ->state(fn (Order $record): string => $record->wooDesiredDateTime() ?: '-'),
+                ])
+                ->columns(2),
+            Infolists\Components\Section::make('Заказ')
+                ->schema([
+                    Infolists\Components\TextEntry::make('external_order_id')->label('Woo ID')->placeholder('-'),
+                    Infolists\Components\TextEntry::make('service_name')->label('Товар'),
+                    Infolists\Components\TextEntry::make('service_price')->label('Сумма')->money('RUB'),
+                    Infolists\Components\TextEntry::make('wooPlan')
+                        ->label('Тариф')
+                        ->state(fn (Order $record): string => $record->wooPlan() ?: '-'),
+                    Infolists\Components\TextEntry::make('wooHours')
+                        ->label('Часы')
+                        ->state(fn (Order $record): string => $record->wooHours() ?: '-'),
+                    Infolists\Components\TextEntry::make('wooAddons')
+                        ->label('Доп услуги')
+                        ->state(fn (Order $record): string => $record->wooAddons() ?: '-'),
+                    Infolists\Components\TextEntry::make('sessionRange')
+                        ->label('Сессия')
+                        ->state(function (Order $record): string {
+                            $date = $record->wooSessionDate();
+                            $time = $record->wooSessionTime();
+                            if ($date || $time) {
+                                return trim(($date ?: '').' '.($time ?: ''));
+                            }
+
+                            if ($record->starts_at && $record->ends_at) {
+                                return $record->starts_at->format('d.m.Y H:i').' - '.$record->ends_at->format('H:i');
+                            }
+
+                            return '-';
+                        }),
+                    Infolists\Components\TextEntry::make('status')
+                        ->label('Статус')
+                        ->badge()
+                        ->color(fn (string $state): string => match ($state) {
+                            'new' => 'gray',
+                            'assigned' => 'info',
+                            'accepted' => 'warning',
+                            'in_progress' => 'primary',
+                            'done' => 'success',
+                            'cancelled' => 'danger',
+                            default => 'gray',
+                        }),
+                ])
+                ->columns(2),
+            Infolists\Components\Section::make('Line items')
+                ->schema([
+                    Infolists\Components\RepeatableEntry::make('meta.line_items')
+                        ->schema([
+                            Infolists\Components\TextEntry::make('name')->label('Товар'),
+                            Infolists\Components\TextEntry::make('quantity')->label('Qty'),
+                            Infolists\Components\TextEntry::make('total')->label('Total'),
+                            Infolists\Components\KeyValueEntry::make('meta')
+                                ->label('Meta')
+                                ->columnSpanFull(),
+                        ])
+                        ->columns(3),
+                ])
+                ->collapsible()
+                ->collapsed(),
+            Infolists\Components\Section::make('Order meta')
+                ->schema([
+                    Infolists\Components\KeyValueEntry::make('meta.order_meta')
+                        ->label('Meta'),
+                ])
+                ->collapsible()
+                ->collapsed(),
+        ]);
     }
 
     public static function table(Table $table): Table
@@ -151,6 +257,7 @@ class OrderResource extends Resource
                             ->warning()
                             ->send();
                     }),
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
@@ -169,6 +276,7 @@ class OrderResource extends Resource
     {
         return [
             'index' => Pages\ListOrders::route('/'),
+            'view' => Pages\ViewOrder::route('/{record}'),
             'create' => Pages\CreateOrder::route('/create'),
             'edit' => Pages\EditOrder::route('/{record}/edit'),
         ];

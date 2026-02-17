@@ -91,4 +91,112 @@ class Order extends Model
     {
         return $this->status === self::STATUS_NEW && ! $this->worker_id;
     }
+
+    public function wooLineItems(): array
+    {
+        $items = $this->meta['line_items'] ?? [];
+        return is_array($items) ? $items : [];
+    }
+
+    public function wooLineItemMeta(): array
+    {
+        foreach ($this->wooLineItems() as $lineItem) {
+            if (! is_array($lineItem)) {
+                continue;
+            }
+
+            $meta = $lineItem['meta'] ?? [];
+            if (is_array($meta) && $meta !== []) {
+                return $meta;
+            }
+        }
+
+        return [];
+    }
+
+    public function wooOrderMeta(): array
+    {
+        $meta = $this->meta['order_meta'] ?? [];
+        return is_array($meta) ? $meta : [];
+    }
+
+    public function metaValue(array $keys): ?string
+    {
+        $lineMeta = $this->wooLineItemMeta();
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $lineMeta) && $lineMeta[$key] !== null && $lineMeta[$key] !== '') {
+                return (string) $lineMeta[$key];
+            }
+        }
+
+        $orderMeta = $this->wooOrderMeta();
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $orderMeta) && $orderMeta[$key] !== null && $orderMeta[$key] !== '') {
+                return (string) $orderMeta[$key];
+            }
+        }
+
+        return null;
+    }
+
+    public function wooPlan(): ?string
+    {
+        return $this->metaValue(['План', 'plan', 'tariff']);
+    }
+
+    public function wooHours(): ?string
+    {
+        return $this->metaValue(['Часы', 'hours']);
+    }
+
+    public function wooAddons(): ?string
+    {
+        return $this->metaValue(['Дополнительно', 'addons', 'extra_services']);
+    }
+
+    public function wooSessionDate(): ?string
+    {
+        return $this->metaValue(['Дата сессии', 'booking_date']);
+    }
+
+    public function wooSessionTime(): ?string
+    {
+        return $this->metaValue(['Время сессии', 'booking_time']);
+    }
+
+    public function wooWorkerIdFromMeta(): ?string
+    {
+        return $this->metaValue(['ID работницы', 'worker_id', 'booking_worker_id']);
+    }
+
+    public function wooClientTelegram(): ?string
+    {
+        return $this->metaValue([
+            'billing_tg',
+            'billing_telegram',
+            'telegram',
+            'Твой Телеграм',
+            'Твой Телеграм:',
+        ]);
+    }
+
+    public function wooClientDiscord(): ?string
+    {
+        return $this->metaValue([
+            'billing_ds',
+            'billing_discord',
+            'discord',
+            'Твой Discord',
+            'Твой Discord:',
+        ]);
+    }
+
+    public function wooDesiredDateTime(): ?string
+    {
+        return $this->metaValue([
+            'billing_time',
+            'Желаемая дата и время',
+            'Желаемая дата и время:',
+        ]);
+    }
 }

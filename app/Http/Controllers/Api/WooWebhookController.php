@@ -39,6 +39,7 @@ class WooWebhookController extends Controller
         $sessionDate = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['Дата сессии', 'booking_date']);
         $sessionTimeRange = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['Время сессии', 'booking_time']);
         [$sessionStartFromRange, $sessionEndFromRange] = $this->parseSessionRange($sessionDate, $sessionTimeRange);
+        $orderMeta = $this->normalizeMetaData($raw['meta_data'] ?? []);
 
         $order->fill([
             'client_name' => $clientName !== '' ? $clientName : ($billing['email'] ?? 'Woo Client'),
@@ -53,6 +54,10 @@ class WooWebhookController extends Controller
                 'currency' => $raw['currency'] ?? null,
                 'payment_method' => $raw['payment_method_title'] ?? null,
                 'line_items' => $raw['line_items'] ?? [],
+                'order_meta' => $orderMeta,
+                'billing_tg' => $orderMeta['billing_tg'] ?? null,
+                'billing_ds' => $orderMeta['billing_ds'] ?? null,
+                'billing_time' => $orderMeta['billing_time'] ?? null,
             ],
         ]);
 
@@ -182,6 +187,40 @@ class WooWebhookController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function normalizeMetaData(mixed $metaData): array
+    {
+        if (! is_array($metaData)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($metaData as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $key = isset($item['key']) ? (string) $item['key'] : '';
+            if ($key === '') {
+                continue;
+            }
+
+            $value = $item['value'] ?? null;
+            if (is_array($value)) {
+                $normalized[$key] = json_encode($value, JSON_UNESCAPED_UNICODE);
+                continue;
+            }
+
+            if (is_object($value)) {
+                $normalized[$key] = json_encode($value, JSON_UNESCAPED_UNICODE);
+                continue;
+            }
+
+            $normalized[$key] = $value !== null ? (string) $value : null;
+        }
+
+        return $normalized;
     }
 
     private function syncCalendarSlotForWooStatus(Order $order, string $wooStatus): void
