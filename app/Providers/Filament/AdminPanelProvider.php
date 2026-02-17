@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\AdminQuickActions;
 use App\Filament\Widgets\AdminOpsOverview;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -65,6 +66,30 @@ class AdminPanelProvider extends PanelProvider
     .fi-input, .fi-select-input, .fi-textarea {
         border-radius: 12px !important;
     }
+    @media (max-width: 768px) {
+        .fi-main {
+            padding-inline: 0.75rem !important;
+        }
+        .fi-section {
+            border-radius: 14px !important;
+        }
+        .fi-section-header-heading {
+            font-size: 1.05rem !important;
+        }
+        .fi-tabs-item-btn {
+            padding: 0.45rem 0.7rem !important;
+            font-size: 0.8rem !important;
+        }
+        .fi-ta-ctn {
+            overflow-x: auto;
+        }
+        .fi-ta-table {
+            min-width: 700px;
+        }
+        .fi-btn {
+            min-height: 40px;
+        }
+    }
 </style>
 HTML
             )
@@ -76,6 +101,7 @@ HTML
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 AdminOpsOverview::class,
+                AdminQuickActions::class,
                 Widgets\AccountWidget::class,
             ])
             ->middleware([

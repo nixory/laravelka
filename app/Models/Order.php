@@ -199,4 +199,89 @@ class Order extends Model
             'Желаемая дата и время:',
         ]);
     }
+
+    public function statusLabel(): string
+    {
+        return match ((string) $this->status) {
+            self::STATUS_NEW => 'Новый',
+            self::STATUS_ASSIGNED => 'Назначен',
+            self::STATUS_ACCEPTED => 'Принят',
+            self::STATUS_IN_PROGRESS => 'В работе',
+            self::STATUS_DONE => 'Выполнен',
+            self::STATUS_CANCELLED => 'Отменён',
+            default => (string) $this->status,
+        };
+    }
+
+    public function timelineEvents(): array
+    {
+        $events = [];
+
+        $events[] = [
+            'title' => 'Заказ создан',
+            'type' => 'created',
+            'at' => optional($this->created_at)?->timezone('Europe/Moscow')?->format('d.m.Y H:i') ?: '-',
+            'sort_at' => optional($this->created_at)?->timestamp ?? 0,
+            'note' => $this->external_order_id ? "Woo ID: {$this->external_order_id}" : null,
+        ];
+
+        if ($this->worker_id) {
+            $events[] = [
+                'title' => 'Назначена работница',
+                'type' => 'assigned',
+                'at' => optional($this->updated_at)?->timezone('Europe/Moscow')?->format('d.m.Y H:i') ?: '-',
+                'sort_at' => optional($this->updated_at)?->timestamp ?? 0,
+                'note' => $this->worker?->display_name ? "Работница: {$this->worker->display_name}" : null,
+            ];
+        }
+
+        if ($this->accepted_at) {
+            $events[] = [
+                'title' => 'Заказ принят работницей',
+                'type' => 'accepted',
+                'at' => $this->accepted_at->timezone('Europe/Moscow')->format('d.m.Y H:i'),
+                'sort_at' => $this->accepted_at->timestamp,
+                'note' => null,
+            ];
+        }
+
+        if ($this->completed_at) {
+            $events[] = [
+                'title' => 'Заказ выполнен',
+                'type' => 'done',
+                'at' => $this->completed_at->timezone('Europe/Moscow')->format('d.m.Y H:i'),
+                'sort_at' => $this->completed_at->timestamp,
+                'note' => null,
+            ];
+        }
+
+        if ($this->cancelled_at) {
+            $events[] = [
+                'title' => 'Заказ отменён',
+                'type' => 'cancelled',
+                'at' => $this->cancelled_at->timezone('Europe/Moscow')->format('d.m.Y H:i'),
+                'sort_at' => $this->cancelled_at->timestamp,
+                'note' => null,
+            ];
+        }
+
+        foreach ($this->declineRequests()->with('worker')->latest('created_at')->get() as $decline) {
+            $events[] = [
+                'title' => 'Отказ от заказа',
+                'type' => 'declined',
+                'at' => optional($decline->created_at)?->timezone('Europe/Moscow')?->format('d.m.Y H:i') ?: '-',
+                'sort_at' => optional($decline->created_at)?->timestamp ?? 0,
+                'note' => trim(($decline->worker?->display_name ? "Работница: {$decline->worker->display_name}. " : '') . ($decline->reason_text ?: $decline->reason_code)),
+            ];
+        }
+
+        usort($events, static fn (array $a, array $b): int => ((int) $a['sort_at']) <=> ((int) $b['sort_at']));
+
+        foreach ($events as &$event) {
+            unset($event['sort_at']);
+        }
+        unset($event);
+
+        return $events;
+    }
 }

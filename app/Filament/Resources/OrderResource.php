@@ -109,7 +109,55 @@ class OrderResource extends Resource
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
+            Infolists\Components\Section::make('Ключевые данные')
+                ->schema([
+                    Infolists\Components\TextEntry::make('external_order_id')
+                        ->label('Woo ID')
+                        ->placeholder('-'),
+                    Infolists\Components\TextEntry::make('status_label')
+                        ->label('Статус')
+                        ->state(fn (Order $record): string => $record->statusLabel())
+                        ->badge()
+                        ->color(fn (Order $record): string => match ((string) $record->status) {
+                            'new' => 'gray',
+                            'assigned' => 'info',
+                            'accepted' => 'warning',
+                            'in_progress' => 'primary',
+                            'done' => 'success',
+                            'cancelled' => 'danger',
+                            default => 'gray',
+                        }),
+                    Infolists\Components\TextEntry::make('worker.display_name')
+                        ->label('Работница')
+                        ->placeholder('Не назначена'),
+                    Infolists\Components\TextEntry::make('service_price')
+                        ->label('Сумма')
+                        ->money('RUB'),
+                    Infolists\Components\TextEntry::make('sessionRange')
+                        ->label('Сессия')
+                        ->state(function (Order $record): string {
+                            $date = $record->wooSessionDate();
+                            $time = $record->wooSessionTime();
+                            if ($date || $time) {
+                                return trim(($date ?: '').' '.($time ?: ''));
+                            }
+
+                            if ($record->starts_at && $record->ends_at) {
+                                return $record->starts_at->timezone('Europe/Moscow')->format('d.m.Y H:i').' - '.$record->ends_at->timezone('Europe/Moscow')->format('H:i');
+                            }
+
+                            return '-';
+                        }),
+                    Infolists\Components\TextEntry::make('created_at')
+                        ->label('Создан')
+                        ->state(fn (Order $record): string => $record->created_at?->timezone('Europe/Moscow')->format('d.m.Y H:i') ?? '-'),
+                    Infolists\Components\TextEntry::make('updated_at')
+                        ->label('Обновлён')
+                        ->state(fn (Order $record): string => $record->updated_at?->timezone('Europe/Moscow')->format('d.m.Y H:i') ?? '-'),
+                ])
+                ->columns(4),
             Infolists\Components\Section::make('Клиент')
+                ->collapsible(false)
                 ->schema([
                     Infolists\Components\TextEntry::make('client_name')->label('Имя'),
                     Infolists\Components\TextEntry::make('client_email')->label('Email')->placeholder('-'),
@@ -126,10 +174,9 @@ class OrderResource extends Resource
                 ])
                 ->columns(2),
             Infolists\Components\Section::make('Заказ')
+                ->collapsible(false)
                 ->schema([
-                    Infolists\Components\TextEntry::make('external_order_id')->label('Woo ID')->placeholder('-'),
                     Infolists\Components\TextEntry::make('service_name')->label('Товар'),
-                    Infolists\Components\TextEntry::make('service_price')->label('Сумма')->money('RUB'),
                     Infolists\Components\TextEntry::make('wooPlan')
                         ->label('Тариф')
                         ->state(fn (Order $record): string => $record->wooPlan() ?: '-'),
@@ -149,25 +196,53 @@ class OrderResource extends Resource
                             }
 
                             if ($record->starts_at && $record->ends_at) {
-                                return $record->starts_at->format('d.m.Y H:i').' - '.$record->ends_at->format('H:i');
+                                return $record->starts_at->timezone('Europe/Moscow')->format('d.m.Y H:i').' - '.$record->ends_at->timezone('Europe/Moscow')->format('H:i');
                             }
 
                             return '-';
                         }),
-                    Infolists\Components\TextEntry::make('status')
-                        ->label('Статус')
-                        ->badge()
-                        ->color(fn (string $state): string => match ($state) {
-                            'new' => 'gray',
-                            'assigned' => 'info',
-                            'accepted' => 'warning',
-                            'in_progress' => 'primary',
-                            'done' => 'success',
-                            'cancelled' => 'danger',
-                            default => 'gray',
-                        }),
                 ])
                 ->columns(2),
+            Infolists\Components\Section::make('Таймлайн')
+                ->schema([
+                    Infolists\Components\RepeatableEntry::make('timeline')
+                        ->state(fn (Order $record): array => $record->timelineEvents())
+                        ->schema([
+                            Infolists\Components\TextEntry::make('title')
+                                ->label('Событие'),
+                            Infolists\Components\TextEntry::make('type')
+                                ->label('Тип')
+                                ->badge()
+                                ->formatStateUsing(fn (string $state): string => match ($state) {
+                                    'created' => 'Создан',
+                                    'assigned' => 'Назначен',
+                                    'accepted' => 'Принят',
+                                    'done' => 'Выполнен',
+                                    'cancelled' => 'Отменён',
+                                    'declined' => 'Отказ',
+                                    default => $state,
+                                })
+                                ->color(fn (string $state): string => match ($state) {
+                                    'created' => 'gray',
+                                    'assigned' => 'info',
+                                    'accepted' => 'warning',
+                                    'done' => 'success',
+                                    'cancelled' => 'danger',
+                                    'declined' => 'danger',
+                                    default => 'gray',
+                                }),
+                            Infolists\Components\TextEntry::make('at')
+                                ->label('Время (МСК)'),
+                            Infolists\Components\TextEntry::make('note')
+                                ->label('Комментарий')
+                                ->placeholder('-')
+                                ->columnSpanFull(),
+                        ])
+                        ->columns(3)
+                        ->contained(false),
+                ])
+                ->collapsible()
+                ->collapsed(false),
             Infolists\Components\Section::make('Позиции заказа')
                 ->schema([
                     Infolists\Components\RepeatableEntry::make('meta.line_items')
