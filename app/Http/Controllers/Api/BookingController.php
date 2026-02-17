@@ -280,7 +280,9 @@ class BookingController extends Controller
             return [];
         }
 
-        $slots = [];
+        $availableIntervals = [];
+        $blockedIntervals = [];
+
         foreach ($rows as $row) {
             $rowStartLocal = $row->starts_at->copy()->setTimezone($timezone);
             $rowEndLocal = $row->ends_at->copy()->setTimezone($timezone);
@@ -292,23 +294,60 @@ class BookingController extends Controller
                 continue;
             }
 
-            $start = $startLocal->format('H:i');
-            $end = $endLocal->format('H:i');
-            $slotDate = $date;
-
-            $isAvailable = $row->status === 'available'
-                && ! Cache::has($this->holdSlotKey($worker->id, $slotDate, $start, $end));
-
-            $slots[] = [
-                'start' => $start,
-                'end' => $end,
-                'date' => $slotDate,
-                'label' => $start.' - '.$end,
-                'available' => $isAvailable,
+            $interval = [
+                'start' => $startLocal,
+                'end' => $endLocal,
             ];
+
+            if ($row->status === 'available') {
+                $availableIntervals[] = $interval;
+                continue;
+            }
+
+            if (in_array((string) $row->status, ['reserved', 'booked', 'blocked'], true)) {
+                $blockedIntervals[] = $interval;
+            }
         }
 
-        return $slots;
+        $slots = [];
+        foreach ($availableIntervals as $interval) {
+            $cursor = $interval['start']->copy();
+
+            while ($cursor->lessThan($interval['end'])) {
+                $slotEnd = $cursor->copy()->addHour();
+                if ($slotEnd->greaterThan($interval['end'])) {
+                    break;
+                }
+
+                if ($this->overlapsBlockedIntervals($cursor, $slotEnd, $blockedIntervals)) {
+                    $cursor = $slotEnd;
+                    continue;
+                }
+
+                $start = $cursor->format('H:i');
+                $end = $slotEnd->format('H:i');
+                $slotDate = $date;
+
+                if (Cache::has($this->holdSlotKey($worker->id, $slotDate, $start, $end))) {
+                    $cursor = $slotEnd;
+                    continue;
+                }
+
+                $slots[] = [
+                    'start' => $start,
+                    'end' => $end,
+                    'date' => $slotDate,
+                    'label' => $start.' - '.$end,
+                    'available' => true,
+                ];
+
+                $cursor = $slotEnd;
+            }
+        }
+
+        usort($slots, fn ($a, $b) => strcmp((string) $a['start'], (string) $b['start']));
+
+        return array_values(array_map('unserialize', array_unique(array_map('serialize', $slots))));
     }
 
     private function isSlotBlocked(int $workerId, string $date, string $start, string $end): bool
@@ -339,6 +378,20 @@ class BookingController extends Controller
     private function holdSlotKey(int $workerId, string $date, string $start, string $end): string
     {
         return 'ops_booking_hold_slot_'.md5($workerId.'|'.$date.'|'.$start.'|'.$end);
+    }
+
+    private function overlapsBlockedIntervals(Carbon $slotStart, Carbon $slotEnd, array $blockedIntervals): bool
+    {
+        foreach ($blockedIntervals as $interval) {
+            $blockedStart = $interval['start'];
+            $blockedEnd = $interval['end'];
+
+            if ($slotStart->lessThan($blockedEnd) && $slotEnd->greaterThan($blockedStart)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function holdTokenKey(string $token): string
