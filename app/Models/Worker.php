@@ -110,4 +110,31 @@ class Worker extends Model
 
         return false;
     }
+
+    public function confirmedPayoutBalance(): float
+    {
+        $credits = (float) $this->payoutTransactions()
+            ->where('status', 'confirmed')
+            ->where('type', 'credit')
+            ->sum('amount');
+
+        $debits = (float) $this->payoutTransactions()
+            ->where('status', 'confirmed')
+            ->where('type', 'debit')
+            ->sum('amount');
+
+        return max(0, round($credits - $debits, 2));
+    }
+
+    public function pendingWithdrawalAmount(): float
+    {
+        return (float) $this->withdrawalRequests()
+            ->whereIn('status', ['pending', 'approved'])
+            ->sum('amount');
+    }
+
+    public function availableWithdrawalBalance(): float
+    {
+        return max(0, round($this->confirmedPayoutBalance() - $this->pendingWithdrawalAmount(), 2));
+    }
 }
