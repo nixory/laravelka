@@ -20,7 +20,11 @@ class OrderObserver
     {
         $this->assignmentService->assign($order);
 
-        if ($order->worker_id && $order->status === Order::STATUS_ASSIGNED) {
+        if (
+            $order->worker_id
+            && $order->status === Order::STATUS_ASSIGNED
+            && $this->shouldNotifyWorkerByWooStatus($order)
+        ) {
             $this->telegramNotifier->notifyWorkerNewOrder($order->fresh(['worker']));
         }
     }
@@ -35,6 +39,7 @@ class OrderObserver
             ($order->wasChanged('worker_id') || $order->wasChanged('status'))
             && $order->worker_id
             && $order->status === Order::STATUS_ASSIGNED
+            && $this->shouldNotifyWorkerByWooStatus($order)
         ) {
             $this->telegramNotifier->notifyWorkerNewOrder($order->fresh(['worker']));
         }
@@ -82,5 +87,11 @@ class OrderObserver
             ],
             'occurred_at' => now(),
         ]);
+    }
+
+    private function shouldNotifyWorkerByWooStatus(Order $order): bool
+    {
+        $wooStatus = strtolower((string) data_get($order->meta, 'woo_status', ''));
+        return in_array($wooStatus, ['processing', 'completed'], true);
     }
 }
