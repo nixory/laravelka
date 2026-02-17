@@ -23,19 +23,53 @@ class BookingController extends Controller
 
         $worker = Worker::query()->with(['availabilities' => fn ($q) => $q->where('is_active', true)])->findOrFail((int) $data['worker_id']);
         $date = (string) $data['date'];
-        $slots = $this->buildSlotsFromCalendarTable($worker, $date);
+        $slots = $this->resolveSlotsForDate($worker, $date);
 
-        if (count($slots) === 0) {
-            $slots = $this->buildSlotsForDate($worker, $date);
+        return response()->json([
+            'ok' => true,
+            'slots' => $slots,
+        ]);
+    }
 
-            foreach ($slots as &$slot) {
-                $slot['available'] = ! $this->isSlotBlocked($worker->id, $date, $slot['start'], $slot['end']);
+    public function slotsRange(Request $request): JsonResponse
+    {
+        $this->authorizeRequest($request);
+
+        $data = $request->validate([
+            'worker_id' => ['required', 'integer', 'exists:workers,id'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'days' => ['nullable', 'integer', 'min:1', 'max:60'],
+        ]);
+
+        $worker = Worker::query()
+            ->with(['availabilities' => fn ($q) => $q->where('is_active', true)])
+            ->findOrFail((int) $data['worker_id']);
+
+        $from = (string) ($data['from'] ?? now('UTC')->format('Y-m-d'));
+        $days = (int) ($data['days'] ?? 30);
+
+        $calendar = [];
+        $cursor = Carbon::createFromFormat('Y-m-d', $from, 'UTC')->startOfDay();
+
+        for ($i = 0; $i < $days; $i++) {
+            $date = $cursor->copy()->addDays($i)->format('Y-m-d');
+            $slots = $this->resolveSlotsForDate($worker, $date);
+
+            if ($slots !== []) {
+                $calendar[] = [
+                    'date' => $date,
+                    'slots' => $slots,
+                ];
             }
         }
 
         return response()->json([
             'ok' => true,
-            'slots' => $slots,
+            'workerId' => $worker->id,
+            'from' => $from,
+            'days' => $days,
+            'calendar' => $calendar,
+            'errors' => [],
         ]);
     }
 
@@ -325,5 +359,21 @@ class BookingController extends Controller
             'ok' => false,
             'message' => 'Invalid token.',
         ], 401)->throwResponse();
+    }
+
+    private function resolveSlotsForDate(Worker $worker, string $date): array
+    {
+        $slots = $this->buildSlotsFromCalendarTable($worker, $date);
+
+        if (count($slots) === 0) {
+            $slots = $this->buildSlotsForDate($worker, $date);
+
+            foreach ($slots as &$slot) {
+                $slot['available'] = ! $this->isSlotBlocked($worker->id, $date, $slot['start'], $slot['end']);
+            }
+            unset($slot);
+        }
+
+        return $slots;
     }
 }

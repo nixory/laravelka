@@ -15,6 +15,8 @@ Route::post('/integrations/woo/report-failure', [WooWebhookController::class, 'r
 
 Route::get('/bookings/slots', [BookingController::class, 'slots'])
     ->middleware('throttle:120,1');
+Route::get('/bookings/slots-range', [BookingController::class, 'slotsRange'])
+    ->middleware('throttle:120,1');
 
 Route::post('/bookings/holds', [BookingController::class, 'hold'])
     ->middleware('throttle:120,1');
