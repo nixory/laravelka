@@ -252,6 +252,7 @@ class MyOrderResource extends Resource
                 }
 
                 return in_array((string) $record->status, [
+                    Order::STATUS_NEW,
                     Order::STATUS_ASSIGNED,
                     Order::STATUS_ACCEPTED,
                     Order::STATUS_IN_PROGRESS,

@@ -67,6 +67,10 @@ class WooWebhookController extends Controller
 
         if (is_numeric($selectedWorkerId)) {
             $order->worker_id = (int) $selectedWorkerId;
+
+            if (in_array((string) $order->status, [Order::STATUS_NEW, Order::STATUS_ASSIGNED], true)) {
+                $order->status = Order::STATUS_ASSIGNED;
+            }
         }
 
         if (in_array($wooStatus, ['cancelled', 'failed', 'refunded'], true)) {
