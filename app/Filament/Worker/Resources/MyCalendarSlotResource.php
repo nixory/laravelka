@@ -19,11 +19,11 @@ class MyCalendarSlotResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static ?string $navigationLabel = 'My calendar';
+    protected static ?string $navigationLabel = 'Мой календарь';
 
-    protected static ?string $modelLabel = 'Calendar slot';
+    protected static ?string $modelLabel = 'Слот календаря';
 
-    protected static ?string $pluralModelLabel = 'Calendar slots';
+    protected static ?string $pluralModelLabel = 'Слоты календаря';
 
     public static function form(Form $form): Form
     {
@@ -38,8 +38,8 @@ class MyCalendarSlotResource extends Resource
                     ->after('starts_at'),
                 Forms\Components\Select::make('status')
                     ->options([
-                        'available' => 'Available',
-                        'blocked' => 'Blocked',
+                        'available' => 'Доступно',
+                        'blocked' => 'Заблокировано',
                     ])
                     ->default('available')
                     ->required(),
@@ -54,10 +54,10 @@ class MyCalendarSlotResource extends Resource
             ->defaultSort('starts_at')
             ->columns([
                 Tables\Columns\TextColumn::make('starts_at')
-                    ->dateTime()
+                    ->dateTime('d.m.Y H:i', 'Europe/Moscow')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('ends_at')
-                    ->dateTime()
+                    ->dateTime('d.m.Y H:i', 'Europe/Moscow')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -73,10 +73,10 @@ class MyCalendarSlotResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->options([
-                        'available' => 'Available',
-                        'blocked' => 'Blocked',
-                        'booked' => 'Booked',
-                        'reserved' => 'Reserved',
+                        'available' => 'Доступно',
+                        'blocked' => 'Заблокировано',
+                        'booked' => 'Забронировано',
+                        'reserved' => 'В резерве',
                     ]),
             ])
             ->actions([
@@ -128,4 +128,3 @@ class MyCalendarSlotResource extends Resource
         ];
     }
 }
-

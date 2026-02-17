@@ -25,9 +25,46 @@ class WorkerPanelProvider extends PanelProvider
             ->id('worker')
             ->path('worker')
             ->login()
+            ->brandName('OPS eGirlz Воркеры')
             ->colors([
                 'primary' => Color::Amber,
             ])
+            ->renderHook(
+                'panels::head.end',
+                fn (): string => <<<'HTML'
+<style>
+    :root {
+        --ops-surface: #111827;
+        --ops-surface-2: #1f2937;
+        --ops-border: rgba(255, 255, 255, 0.08);
+    }
+    body.fi-body {
+        background: radial-gradient(1200px 600px at 10% -10%, rgba(245, 158, 11, 0.14), transparent), radial-gradient(1000px 500px at 90% -20%, rgba(34, 197, 94, 0.10), transparent), #030712;
+    }
+    .fi-topbar, .fi-sidebar {
+        background: linear-gradient(180deg, rgba(17, 24, 39, 0.92), rgba(3, 7, 18, 0.94));
+        backdrop-filter: blur(8px);
+    }
+    .fi-sidebar-item-button, .fi-btn, .fi-pagination-item-button {
+        border-radius: 12px !important;
+    }
+    .fi-section, .fi-ta-ctn, .fi-in-entry-wrp, .fi-fo-field-wrp {
+        border-radius: 16px !important;
+    }
+    .fi-section, .fi-ta-ctn, .fi-modal-window, .fi-in-entry-wrp {
+        border: 1px solid var(--ops-border) !important;
+        background: linear-gradient(180deg, rgba(17, 24, 39, 0.95), rgba(15, 23, 42, 0.95)) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+    }
+    .fi-ta-row:hover {
+        background: rgba(245, 158, 11, 0.08) !important;
+    }
+    .fi-input, .fi-select-input, .fi-textarea {
+        border-radius: 12px !important;
+    }
+</style>
+HTML
+            )
             ->discoverResources(in: app_path('Filament/Worker/Resources'), for: 'App\\Filament\\Worker\\Resources')
             ->pages([
                 Pages\Dashboard::class,
@@ -48,4 +85,3 @@ class WorkerPanelProvider extends PanelProvider
             ]);
     }
 }
-

@@ -16,11 +16,11 @@ class MyPayoutTransactionResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static ?string $navigationLabel = 'Payouts';
+    protected static ?string $navigationLabel = 'Выплаты';
 
-    protected static ?string $modelLabel = 'Payout transaction';
+    protected static ?string $modelLabel = 'Транзакция выплаты';
 
-    protected static ?string $pluralModelLabel = 'Payout transactions';
+    protected static ?string $pluralModelLabel = 'Транзакции выплат';
 
     public static function table(Table $table): Table
     {
@@ -28,8 +28,8 @@ class MyPayoutTransactionResource extends Resource
             ->defaultSort('occurred_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('occurred_at')
-                    ->label('Date')
-                    ->dateTime()
+                    ->label('Дата')
+                    ->dateTime('d.m.Y H:i', 'Europe/Moscow')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('type')
                     ->badge()
@@ -50,7 +50,7 @@ class MyPayoutTransactionResource extends Resource
                     ->wrap()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('order_id')
-                    ->label('Order')
+                    ->label('Заказ')
                     ->toggleable(),
             ])
             ->actions([])
@@ -96,4 +96,3 @@ class MyPayoutTransactionResource extends Resource
         ];
     }
 }
-

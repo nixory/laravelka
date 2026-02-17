@@ -24,11 +24,11 @@ class MyOrderResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $navigationLabel = 'My orders';
+    protected static ?string $navigationLabel = 'Мои заказы';
 
-    protected static ?string $modelLabel = 'Order';
+    protected static ?string $modelLabel = 'Заказ';
 
-    protected static ?string $pluralModelLabel = 'Orders';
+    protected static ?string $pluralModelLabel = 'Заказы';
 
     public static function table(Table $table): Table
     {
@@ -40,8 +40,8 @@ class MyOrderResource extends Resource
                 Tables\Columns\TextColumn::make('client_name')->searchable(),
                 Tables\Columns\TextColumn::make('service_name')->searchable(),
                 Tables\Columns\TextColumn::make('service_price')->money('RUB'),
-                Tables\Columns\TextColumn::make('starts_at')->dateTime(),
-                Tables\Columns\TextColumn::make('ends_at')->dateTime(),
+                Tables\Columns\TextColumn::make('starts_at')->dateTime('d.m.Y H:i', 'Europe/Moscow'),
+                Tables\Columns\TextColumn::make('ends_at')->dateTime('d.m.Y H:i', 'Europe/Moscow'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->colors([

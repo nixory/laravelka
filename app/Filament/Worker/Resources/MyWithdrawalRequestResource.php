@@ -16,18 +16,18 @@ class MyWithdrawalRequestResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-credit-card';
 
-    protected static ?string $navigationLabel = 'Withdrawal requests';
+    protected static ?string $navigationLabel = 'Заявки на вывод';
 
-    protected static ?string $modelLabel = 'Withdrawal request';
+    protected static ?string $modelLabel = 'Заявка на вывод';
 
-    protected static ?string $pluralModelLabel = 'Withdrawal requests';
+    protected static ?string $pluralModelLabel = 'Заявки на вывод';
 
     public static function table(Table $table): Table
     {
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('requested_at')->dateTime()->label('Requested'),
+                Tables\Columns\TextColumn::make('requested_at')->dateTime('d.m.Y H:i', 'Europe/Moscow')->label('Запрошено'),
                 Tables\Columns\TextColumn::make('amount')->money(fn (WithdrawalRequest $record): string => $record->currency ?: 'RUB'),
                 Tables\Columns\TextColumn::make('payment_method')->badge(),
                 Tables\Columns\TextColumn::make('status')
@@ -40,7 +40,7 @@ class MyWithdrawalRequestResource extends Resource
                         'gray' => 'cancelled',
                     ]),
                 Tables\Columns\TextColumn::make('admin_note')->wrap()->toggleable(),
-                Tables\Columns\TextColumn::make('processed_at')->dateTime()->toggleable(),
+                Tables\Columns\TextColumn::make('processed_at')->dateTime('d.m.Y H:i', 'Europe/Moscow')->toggleable(),
             ])
             ->actions([])
             ->bulkActions([]);
@@ -84,4 +84,3 @@ class MyWithdrawalRequestResource extends Resource
         ];
     }
 }
-

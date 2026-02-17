@@ -49,7 +49,7 @@ class CreateWorker extends CreateRecord
             }
 
             $user = User::query()->create([
-                'name' => $name !== '' ? $name : (string) ($data['display_name'] ?? 'Worker'),
+                'name' => $name !== '' ? $name : (string) ($data['display_name'] ?? 'Работница'),
                 'email' => $email,
                 'password' => Hash::make($password),
                 'role' => User::ROLE_WORKER,

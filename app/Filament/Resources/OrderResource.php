@@ -22,7 +22,7 @@ class OrderResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $navigationGroup = 'Operations';
+    protected static ?string $navigationGroup = 'Операции';
 
     protected static ?int $navigationSort = 2;
 
@@ -54,12 +54,12 @@ class OrderResource extends Resource
                 Forms\Components\DateTimePicker::make('ends_at'),
                 Forms\Components\Select::make('status')
                     ->options([
-                        'new' => 'New',
-                        'assigned' => 'Assigned',
-                        'accepted' => 'Accepted',
-                        'in_progress' => 'In progress',
-                        'done' => 'Done',
-                        'cancelled' => 'Cancelled',
+                        'new' => 'Новый',
+                        'assigned' => 'Назначен',
+                        'accepted' => 'Принят',
+                        'in_progress' => 'В работе',
+                        'done' => 'Выполнен',
+                        'cancelled' => 'Отменён',
                     ])
                     ->required(),
                 Forms\Components\Select::make('worker_id')
@@ -74,7 +74,7 @@ class OrderResource extends Resource
                 Forms\Components\DateTimePicker::make('completed_at'),
                 Forms\Components\DateTimePicker::make('cancelled_at'),
                 Forms\Components\Placeholder::make('woo_summary')
-                    ->label('Woo details')
+                    ->label('Детали Woo')
                     ->content(function (?Order $record): string {
                         if (! $record) {
                             return 'Сохраните заказ, чтобы увидеть детали.';
@@ -91,7 +91,7 @@ class OrderResource extends Resource
                     })
                     ->columnSpanFull(),
                 Forms\Components\Textarea::make('meta_json_readonly')
-                    ->label('Meta (read-only JSON)')
+                    ->label('Мета (только чтение, JSON)')
                     ->formatStateUsing(fn (?Order $record): string => json_encode(
                         $record?->meta ?? [],
                         JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
@@ -165,25 +165,25 @@ class OrderResource extends Resource
                         }),
                 ])
                 ->columns(2),
-            Infolists\Components\Section::make('Line items')
+            Infolists\Components\Section::make('Позиции заказа')
                 ->schema([
                     Infolists\Components\RepeatableEntry::make('meta.line_items')
                         ->schema([
                             Infolists\Components\TextEntry::make('name')->label('Товар'),
-                            Infolists\Components\TextEntry::make('quantity')->label('Qty'),
-                            Infolists\Components\TextEntry::make('total')->label('Total'),
+                            Infolists\Components\TextEntry::make('quantity')->label('Кол-во'),
+                            Infolists\Components\TextEntry::make('total')->label('Сумма'),
                             Infolists\Components\KeyValueEntry::make('meta')
-                                ->label('Meta')
+                                ->label('Мета')
                                 ->columnSpanFull(),
                         ])
                         ->columns(3),
                 ])
                 ->collapsible()
                 ->collapsed(),
-            Infolists\Components\Section::make('Order meta')
+            Infolists\Components\Section::make('Мета заказа')
                 ->schema([
                     Infolists\Components\KeyValueEntry::make('meta.order_meta')
-                        ->label('Meta'),
+                        ->label('Мета'),
                 ])
                 ->collapsible()
                 ->collapsed(),
@@ -198,7 +198,7 @@ class OrderResource extends Resource
                 Tables\Columns\TextColumn::make('id')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('external_order_id')
-                    ->label('External ID')
+                    ->label('Внешний ID')
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('client_name')
@@ -206,7 +206,7 @@ class OrderResource extends Resource
                 Tables\Columns\TextColumn::make('service_name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('service_price')
-                    ->money('USD')
+                    ->money('RUB')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -219,32 +219,32 @@ class OrderResource extends Resource
                         'danger' => 'cancelled',
                     ]),
                 Tables\Columns\TextColumn::make('worker.display_name')
-                    ->label('Worker')
+                    ->label('Работница')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('starts_at')
-                    ->dateTime()
+                    ->dateTime('d.m.Y H:i', 'Europe/Moscow')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->dateTime('d.m.Y H:i', 'Europe/Moscow')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options([
-                        'new' => 'New',
-                        'assigned' => 'Assigned',
-                        'accepted' => 'Accepted',
-                        'in_progress' => 'In progress',
-                        'done' => 'Done',
-                        'cancelled' => 'Cancelled',
+                        'new' => 'Новый',
+                        'assigned' => 'Назначен',
+                        'accepted' => 'Принят',
+                        'in_progress' => 'В работе',
+                        'done' => 'Выполнен',
+                        'cancelled' => 'Отменён',
                     ]),
                 SelectFilter::make('worker_id')
                     ->relationship('worker', 'display_name')
-                    ->label('Worker'),
+                    ->label('Работница'),
             ])
             ->actions([
                 Action::make('autoAssign')
-                    ->label('Auto assign')
+                    ->label('Автоназначение')
                     ->icon('heroicon-o-sparkles')
                     ->requiresConfirmation()
                     ->visible(fn (Order $record): bool => $record->isAutoAssignable())
@@ -253,7 +253,7 @@ class OrderResource extends Resource
 
                         if ($worker) {
                             Notification::make()
-                                ->title("Assigned to {$worker->display_name}")
+                                ->title("Назначено: {$worker->display_name}")
                                 ->success()
                                 ->send();
 
@@ -261,7 +261,7 @@ class OrderResource extends Resource
                         }
 
                         Notification::make()
-                            ->title('No available worker for auto-assign')
+                            ->title('Нет доступной работницы для автоназначения')
                             ->warning()
                             ->send();
                     }),

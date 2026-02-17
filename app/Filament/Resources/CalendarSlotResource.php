@@ -17,7 +17,7 @@ class CalendarSlotResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static ?string $navigationGroup = 'Operations';
+    protected static ?string $navigationGroup = 'Операции';
 
     protected static ?int $navigationSort = 4;
 
@@ -41,17 +41,17 @@ class CalendarSlotResource extends Resource
                     ->required(),
                 Forms\Components\Select::make('status')
                     ->options([
-                        'available' => 'Available',
-                        'reserved' => 'Reserved',
-                        'booked' => 'Booked',
-                        'blocked' => 'Blocked',
+                        'available' => 'Доступно',
+                        'reserved' => 'В резерве',
+                        'booked' => 'Забронировано',
+                        'blocked' => 'Заблокировано',
                     ])
                     ->required(),
                 Forms\Components\Select::make('source')
                     ->options([
-                        'manual' => 'Manual',
-                        'auto' => 'Auto',
-                        'order' => 'Order',
+                        'manual' => 'Вручную',
+                        'auto' => 'Авто',
+                        'order' => 'Заказ',
                     ])
                     ->required(),
                 Forms\Components\Textarea::make('notes')
@@ -65,15 +65,15 @@ class CalendarSlotResource extends Resource
             ->defaultSort('starts_at')
             ->columns([
                 Tables\Columns\TextColumn::make('worker.display_name')
-                    ->label('Worker')
+                    ->label('Работница')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('order_id')
-                    ->label('Order'),
+                    ->label('Заказ'),
                 Tables\Columns\TextColumn::make('starts_at')
-                    ->dateTime()
+                    ->dateTime('d.m.Y H:i', 'Europe/Moscow')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('ends_at')
-                    ->dateTime()
+                    ->dateTime('d.m.Y H:i', 'Europe/Moscow')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -89,14 +89,14 @@ class CalendarSlotResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->options([
-                        'available' => 'Available',
-                        'reserved' => 'Reserved',
-                        'booked' => 'Booked',
-                        'blocked' => 'Blocked',
+                        'available' => 'Доступно',
+                        'reserved' => 'В резерве',
+                        'booked' => 'Забронировано',
+                        'blocked' => 'Заблокировано',
                     ]),
                 SelectFilter::make('worker_id')
                     ->relationship('worker', 'display_name')
-                    ->label('Worker'),
+                    ->label('Работница'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

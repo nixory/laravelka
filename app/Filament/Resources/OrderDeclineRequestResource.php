@@ -21,7 +21,7 @@ class OrderDeclineRequestResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
 
-    protected static ?string $navigationGroup = 'Operations';
+    protected static ?string $navigationGroup = 'Операции';
 
     protected static ?int $navigationSort = 3;
 
@@ -33,12 +33,12 @@ class OrderDeclineRequestResource extends Resource
             Forms\Components\Select::make('user_id')->relationship('user', 'email')->required()->searchable(),
             Forms\Components\TextInput::make('reason_code')->required(),
             Forms\Components\Textarea::make('reason_text')->columnSpanFull(),
-            Forms\Components\Select::make('status')
-                ->options([
-                    'pending' => 'Pending',
-                    'approved' => 'Approved',
-                    'rejected' => 'Rejected',
-                ])
+                Forms\Components\Select::make('status')
+                    ->options([
+                        'pending' => 'Ожидает',
+                        'approved' => 'Подтверждено',
+                        'rejected' => 'Отклонено',
+                    ])
                 ->required(),
             Forms\Components\Textarea::make('admin_note')->columnSpanFull(),
             Forms\Components\DateTimePicker::make('processed_at'),
@@ -52,8 +52,8 @@ class OrderDeclineRequestResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('id')->sortable(),
-                Tables\Columns\TextColumn::make('order_id')->label('Order'),
-                Tables\Columns\TextColumn::make('worker.display_name')->label('Worker')->searchable(),
+                Tables\Columns\TextColumn::make('order_id')->label('Заказ'),
+                Tables\Columns\TextColumn::make('worker.display_name')->label('Работница')->searchable(),
                 Tables\Columns\TextColumn::make('reason_code')->badge(),
                 Tables\Columns\TextColumn::make('reason_text')->wrap()->limit(50),
                 Tables\Columns\TextColumn::make('status')
@@ -63,13 +63,13 @@ class OrderDeclineRequestResource extends Resource
                         'success' => 'approved',
                         'danger' => 'rejected',
                     ]),
-                Tables\Columns\TextColumn::make('created_at')->dateTime(),
+                Tables\Columns\TextColumn::make('created_at')->dateTime('d.m.Y H:i', 'Europe/Moscow'),
             ])
             ->filters([
                 SelectFilter::make('status')->options([
-                    'pending' => 'Pending',
-                    'approved' => 'Approved',
-                    'rejected' => 'Rejected',
+                    'pending' => 'Ожидает',
+                    'approved' => 'Подтверждено',
+                    'rejected' => 'Отклонено',
                 ]),
             ])
             ->actions([
@@ -93,7 +93,7 @@ class OrderDeclineRequestResource extends Resource
                             ]);
                         }
 
-                        Notification::make()->title('Decline approved, order returned to queue')->success()->send();
+                        Notification::make()->title('Отказ подтверждён, заказ возвращён в очередь')->success()->send();
                     }),
                 Action::make('reject')
                     ->icon('heroicon-o-x-circle')
@@ -112,7 +112,7 @@ class OrderDeclineRequestResource extends Resource
                             'processed_by_user_id' => Filament::auth()->id(),
                         ]);
 
-                        Notification::make()->title('Decline request rejected')->warning()->send();
+                        Notification::make()->title('Заявка на отказ отклонена')->warning()->send();
                     }),
                 Tables\Actions\EditAction::make(),
             ])
@@ -132,4 +132,3 @@ class OrderDeclineRequestResource extends Resource
         ];
     }
 }
-

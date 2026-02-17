@@ -116,7 +116,7 @@ class TelegramNotifier
         $text = implode("\n", [
             "⏰ <b>Напоминание о заказе</b>",
             "Order #{$order->id} стартует через {$minutesBefore} мин.",
-            'Время старта: '.$order->starts_at->timezone($worker->timezone ?: 'UTC')->format('d.m.Y H:i'),
+            'Время старта: '.$order->starts_at->timezone('Europe/Moscow')->format('d.m.Y H:i').' (МСК)',
             'Клиент: '.($order->client_name ?: '-'),
         ]);
 

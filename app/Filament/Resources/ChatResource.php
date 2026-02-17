@@ -17,7 +17,7 @@ class ChatResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 
-    protected static ?string $navigationGroup = 'Operations';
+    protected static ?string $navigationGroup = 'Операции';
 
     protected static ?int $navigationSort = 3;
 
@@ -43,8 +43,8 @@ class ChatResource extends Resource
                     ->maxLength(255),
                 Forms\Components\Select::make('status')
                     ->options([
-                        'open' => 'Open',
-                        'closed' => 'Closed',
+                        'open' => 'Открыт',
+                        'closed' => 'Закрыт',
                     ])
                     ->required(),
                 Forms\Components\DateTimePicker::make('last_message_at'),
@@ -60,9 +60,9 @@ class ChatResource extends Resource
                 Tables\Columns\TextColumn::make('id')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('order_id')
-                    ->label('Order'),
+                    ->label('Заказ'),
                 Tables\Columns\TextColumn::make('worker.display_name')
-                    ->label('Worker')
+                    ->label('Работница')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('client_name')
                     ->searchable(),
@@ -82,8 +82,8 @@ class ChatResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->options([
-                        'open' => 'Open',
-                        'closed' => 'Closed',
+                        'open' => 'Открыт',
+                        'closed' => 'Закрыт',
                     ]),
             ])
             ->actions([

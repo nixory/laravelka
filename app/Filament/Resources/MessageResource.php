@@ -17,7 +17,7 @@ class MessageResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-bottom-center-text';
 
-    protected static ?string $navigationGroup = 'Operations';
+    protected static ?string $navigationGroup = 'Операции';
 
     protected static ?int $navigationSort = 5;
 
@@ -32,10 +32,10 @@ class MessageResource extends Resource
                     ->preload(),
                 Forms\Components\Select::make('sender_type')
                     ->options([
-                        'client' => 'Client',
-                        'worker' => 'Worker',
-                        'operator' => 'Operator',
-                        'system' => 'System',
+                        'client' => 'Клиент',
+                        'worker' => 'Работница',
+                        'operator' => 'Оператор',
+                        'system' => 'Система',
                     ])
                     ->required(),
                 Forms\Components\Select::make('sender_user_id')
@@ -64,15 +64,15 @@ class MessageResource extends Resource
                 Tables\Columns\TextColumn::make('id')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('chat_id')
-                    ->label('Chat')
+                    ->label('Чат')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('sender_type')
                     ->badge(),
                 Tables\Columns\TextColumn::make('senderUser.email')
-                    ->label('Sender user')
+                    ->label('Отправитель')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('worker.display_name')
-                    ->label('Worker')
+                    ->label('Работница')
                     ->searchable(),
                 Tables\Columns\IconColumn::make('is_read')
                     ->boolean(),
@@ -83,15 +83,15 @@ class MessageResource extends Resource
             ->filters([
                 SelectFilter::make('sender_type')
                     ->options([
-                        'client' => 'Client',
-                        'worker' => 'Worker',
-                        'operator' => 'Operator',
-                        'system' => 'System',
+                        'client' => 'Клиент',
+                        'worker' => 'Работница',
+                        'operator' => 'Оператор',
+                        'system' => 'Система',
                     ]),
                 SelectFilter::make('is_read')
                     ->options([
-                        '1' => 'Read',
-                        '0' => 'Unread',
+                        '1' => 'Прочитано',
+                        '0' => 'Не прочитано',
                     ]),
             ])
             ->actions([

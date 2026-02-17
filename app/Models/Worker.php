@@ -83,7 +83,7 @@ class Worker extends Model
 
     public function isAvailableAt(CarbonInterface $moment): bool
     {
-        $timezone = $this->timezone ?: 'UTC';
+        $timezone = $this->timezone ?: 'Europe/Moscow';
         $localMoment = $moment->copy()->timezone($timezone);
         $dayOfWeek = $localMoment->dayOfWeek;
         $time = $localMoment->format('H:i:s');

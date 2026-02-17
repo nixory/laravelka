@@ -21,7 +21,7 @@ class WithdrawalRequestResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-wallet';
 
-    protected static ?string $navigationGroup = 'Finance';
+    protected static ?string $navigationGroup = 'Финансы';
 
     protected static ?int $navigationSort = 1;
 
@@ -32,14 +32,14 @@ class WithdrawalRequestResource extends Resource
             Forms\Components\Select::make('user_id')->relationship('user', 'email')->required()->searchable(),
             Forms\Components\TextInput::make('amount')->numeric()->required(),
             Forms\Components\TextInput::make('currency')->default('RUB')->required(),
-            Forms\Components\Select::make('status')
-                ->options([
-                    'pending' => 'Pending',
-                    'approved' => 'Approved',
-                    'rejected' => 'Rejected',
-                    'paid' => 'Paid',
-                    'cancelled' => 'Cancelled',
-                ])
+                Forms\Components\Select::make('status')
+                    ->options([
+                        'pending' => 'Ожидает',
+                        'approved' => 'Подтверждено',
+                        'rejected' => 'Отклонено',
+                        'paid' => 'Выплачено',
+                        'cancelled' => 'Отменено',
+                    ])
                 ->required(),
             Forms\Components\TextInput::make('payment_method'),
             Forms\Components\TextInput::make('payment_details'),
@@ -57,7 +57,7 @@ class WithdrawalRequestResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('id')->sortable(),
-                Tables\Columns\TextColumn::make('worker.display_name')->label('Worker')->searchable(),
+                Tables\Columns\TextColumn::make('worker.display_name')->label('Работница')->searchable(),
                 Tables\Columns\TextColumn::make('amount')->money(fn (WithdrawalRequest $record): string => $record->currency ?: 'RUB'),
                 Tables\Columns\TextColumn::make('payment_method')->badge(),
                 Tables\Columns\TextColumn::make('status')
@@ -69,16 +69,16 @@ class WithdrawalRequestResource extends Resource
                         'danger' => 'rejected',
                         'gray' => 'cancelled',
                     ]),
-                Tables\Columns\TextColumn::make('requested_at')->dateTime(),
-                Tables\Columns\TextColumn::make('processed_at')->dateTime()->toggleable(),
+                Tables\Columns\TextColumn::make('requested_at')->dateTime('d.m.Y H:i', 'Europe/Moscow'),
+                Tables\Columns\TextColumn::make('processed_at')->dateTime('d.m.Y H:i', 'Europe/Moscow')->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('status')->options([
-                    'pending' => 'Pending',
-                    'approved' => 'Approved',
-                    'rejected' => 'Rejected',
-                    'paid' => 'Paid',
-                    'cancelled' => 'Cancelled',
+                    'pending' => 'Ожидает',
+                    'approved' => 'Подтверждено',
+                    'rejected' => 'Отклонено',
+                    'paid' => 'Выплачено',
+                    'cancelled' => 'Отменено',
                 ]),
             ])
             ->actions([
@@ -93,7 +93,7 @@ class WithdrawalRequestResource extends Resource
                             'processed_by_user_id' => Filament::auth()->id(),
                         ]);
 
-                        Notification::make()->title('Request approved')->success()->send();
+                        Notification::make()->title('Заявка подтверждена')->success()->send();
                     }),
                 Action::make('reject')
                     ->icon('heroicon-o-x-circle')
@@ -112,7 +112,7 @@ class WithdrawalRequestResource extends Resource
                             'processed_by_user_id' => Filament::auth()->id(),
                         ]);
 
-                        Notification::make()->title('Request rejected')->warning()->send();
+                        Notification::make()->title('Заявка отклонена')->warning()->send();
                     }),
                 Action::make('markPaid')
                     ->icon('heroicon-o-banknotes')
@@ -139,7 +139,7 @@ class WithdrawalRequestResource extends Resource
                             'occurred_at' => now(),
                         ]);
 
-                        Notification::make()->title('Marked as paid')->success()->send();
+                        Notification::make()->title('Отмечено как выплачено')->success()->send();
                     }),
                 Tables\Actions\EditAction::make(),
             ])
@@ -159,4 +159,3 @@ class WithdrawalRequestResource extends Resource
         ];
     }
 }
-
