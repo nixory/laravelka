@@ -87,12 +87,10 @@ class TelegramNotifier
             "📥 <b>Новый заказ</b>",
             "Order #{$order->id}",
             'Клиент: '.($order->client_name ?: '-'),
-            'Товар: '.($order->service_name ?: '-'),
             'Тариф: '.($order->wooPlan() ?: '-'),
             'Часы: '.($order->wooHours() ?: '-'),
             'Сессия: '.$this->orderSessionRange($order),
             'Доп. услуги: '.$this->formatAddons($order->wooAddons()),
-            'Сумма заказа: '.number_format((float) $order->service_price, 2, '.', ' ').' RUB',
             'Ваша доля за заказ: '.number_format(((float) $order->service_price) * 0.5, 2, '.', ' ').' RUB',
         ]);
 
