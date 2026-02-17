@@ -14,7 +14,7 @@ Route::get('/tg/admin/orders/{order}', function (Order $order) {
     $user = auth()->user();
 
     if (! $user) {
-        session(['url.intended' => url("/admin/orders/{$order->id}/view")]);
+        session(['url.intended' => url("/tg/admin/orders/{$order->id}")]);
         return redirect('/admin/login');
     }
 
@@ -29,11 +29,30 @@ Route::get('/tg/admin/orders/{order}', function (Order $order) {
     return redirect('/');
 });
 
+Route::get('/tg/admin', function () {
+    $user = auth()->user();
+
+    if (! $user) {
+        session(['url.intended' => url('/admin')]);
+        return redirect('/admin/login');
+    }
+
+    if ($user->role === User::ROLE_ADMIN) {
+        return redirect('/admin');
+    }
+
+    if ($user->role === User::ROLE_WORKER) {
+        return redirect('/worker');
+    }
+
+    return redirect('/');
+});
+
 Route::get('/tg/admin/withdrawals/{withdrawalRequest}', function (WithdrawalRequest $withdrawalRequest) {
     $user = auth()->user();
 
     if (! $user) {
-        session(['url.intended' => url("/admin/withdrawal-requests/{$withdrawalRequest->id}/edit")]);
+        session(['url.intended' => url("/tg/admin/withdrawals/{$withdrawalRequest->id}")]);
         return redirect('/admin/login');
     }
 
@@ -48,7 +67,7 @@ Route::get('/tg/admin/declines/{orderDeclineRequest}', function (OrderDeclineReq
     $user = auth()->user();
 
     if (! $user) {
-        session(['url.intended' => url("/admin/order-decline-requests/{$orderDeclineRequest->id}/edit")]);
+        session(['url.intended' => url("/tg/admin/declines/{$orderDeclineRequest->id}")]);
         return redirect('/admin/login');
     }
 
@@ -63,11 +82,16 @@ Route::get('/tg/worker/orders/{order}', function (Order $order) {
     $user = auth()->user();
 
     if (! $user) {
-        session(['url.intended' => url("/worker/orders/{$order->id}")]);
+        session(['url.intended' => url("/tg/worker/orders/{$order->id}")]);
         return redirect('/worker/login');
     }
 
     if ($user->role === User::ROLE_WORKER) {
+        $workerId = $user->workerProfile?->id;
+        if (! $workerId || (int) $order->worker_id !== (int) $workerId) {
+            return redirect('/worker');
+        }
+
         return redirect("/worker/orders/{$order->id}");
     }
 
