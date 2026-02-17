@@ -38,33 +38,60 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => <<<'HTML'
 <style>
     :root {
-        --ops-surface: #111827;
-        --ops-surface-2: #1f2937;
-        --ops-border: rgba(255, 255, 255, 0.08);
+        --ops-surface: #0b1020;
+        --ops-surface-2: #101936;
+        --ops-card: rgba(11, 16, 32, 0.86);
+        --ops-card-soft: rgba(255, 255, 255, 0.02);
+        --ops-border: rgba(255, 255, 255, 0.10);
+        --ops-muted: #95a4be;
     }
     body.fi-body {
-        background: radial-gradient(1200px 600px at 10% -10%, rgba(245, 158, 11, 0.14), transparent), radial-gradient(1000px 500px at 90% -20%, rgba(34, 197, 94, 0.10), transparent), #030712;
+        background:
+            radial-gradient(1200px 600px at 8% -14%, rgba(245, 158, 11, 0.10), transparent),
+            radial-gradient(900px 500px at 95% -20%, rgba(56, 189, 248, 0.08), transparent),
+            linear-gradient(180deg, #050913 0%, #030712 100%);
     }
     .fi-topbar, .fi-sidebar {
-        background: linear-gradient(180deg, rgba(17, 24, 39, 0.92), rgba(3, 7, 18, 0.94));
-        backdrop-filter: blur(8px);
+        background: linear-gradient(180deg, rgba(12, 18, 36, 0.90), rgba(5, 10, 22, 0.94));
+        backdrop-filter: blur(10px);
+        border-color: rgba(255, 255, 255, 0.06) !important;
     }
     .fi-sidebar-item-button, .fi-btn, .fi-pagination-item-button {
         border-radius: 12px !important;
     }
-    .fi-section, .fi-ta-ctn, .fi-in-entry-wrp, .fi-fo-field-wrp {
+    .fi-section, .fi-ta-ctn, .fi-fo-field-wrp {
         border-radius: 16px !important;
     }
-    .fi-section, .fi-ta-ctn, .fi-modal-window, .fi-in-entry-wrp {
+    .fi-section, .fi-ta-ctn, .fi-modal-window {
         border: 1px solid var(--ops-border) !important;
-        background: linear-gradient(180deg, rgba(17, 24, 39, 0.95), rgba(15, 23, 42, 0.95)) !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+        background: linear-gradient(180deg, rgba(12, 18, 36, 0.90), rgba(9, 14, 30, 0.92)) !important;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.30);
+    }
+    .fi-in-entry-wrp {
+        border-radius: 12px !important;
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        background: var(--ops-card-soft) !important;
+        box-shadow: none !important;
+    }
+    .fi-in-entry-wrp-label,
+    .fi-in-entry-label,
+    .fi-fo-field-wrp-label {
+        color: var(--ops-muted) !important;
+        font-weight: 600 !important;
+        letter-spacing: .01em;
+    }
+    .fi-section-header-heading {
+        letter-spacing: .01em;
+    }
+    .fi-section-content {
+        padding-top: 1rem !important;
     }
     .fi-ta-row:hover {
-        background: rgba(245, 158, 11, 0.08) !important;
+        background: rgba(245, 158, 11, 0.06) !important;
     }
     .fi-input, .fi-select-input, .fi-textarea {
         border-radius: 12px !important;
+        border-color: rgba(255, 255, 255, 0.12) !important;
     }
     @media (max-width: 768px) {
         .fi-main {
@@ -88,6 +115,9 @@ class AdminPanelProvider extends PanelProvider
         }
         .fi-btn {
             min-height: 40px;
+        }
+        .fi-in-entry-wrp {
+            border-radius: 10px !important;
         }
     }
 </style>
