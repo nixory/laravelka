@@ -15,6 +15,8 @@ class MyWithdrawalRequestResource extends Resource
     protected static ?string $model = WithdrawalRequest::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-credit-card';
+    protected static ?string $navigationGroup = 'Финансы';
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $navigationLabel = 'Заявки на вывод';
 

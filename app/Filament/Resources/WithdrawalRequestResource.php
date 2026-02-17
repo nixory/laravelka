@@ -20,6 +20,9 @@ class WithdrawalRequestResource extends Resource
     protected static ?string $model = WithdrawalRequest::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-wallet';
+    protected static ?string $navigationLabel = 'Заявки на вывод';
+    protected static ?string $modelLabel = 'Заявка на вывод';
+    protected static ?string $pluralModelLabel = 'Заявки на вывод';
 
     protected static ?string $navigationGroup = 'Финансы';
 

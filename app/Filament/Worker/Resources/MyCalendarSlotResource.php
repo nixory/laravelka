@@ -18,6 +18,8 @@ class MyCalendarSlotResource extends Resource
     protected static ?string $model = CalendarSlot::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
+    protected static ?string $navigationGroup = 'Работа';
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $navigationLabel = 'Мой календарь';
 

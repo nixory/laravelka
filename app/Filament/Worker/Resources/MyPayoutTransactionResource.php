@@ -15,6 +15,8 @@ class MyPayoutTransactionResource extends Resource
     protected static ?string $model = PayoutTransaction::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
+    protected static ?string $navigationGroup = 'Финансы';
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $navigationLabel = 'Выплаты';
 

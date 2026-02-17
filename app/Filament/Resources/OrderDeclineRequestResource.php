@@ -20,6 +20,9 @@ class OrderDeclineRequestResource extends Resource
     protected static ?string $model = OrderDeclineRequest::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
+    protected static ?string $navigationLabel = 'Отказы от заказов';
+    protected static ?string $modelLabel = 'Запрос отказа';
+    protected static ?string $pluralModelLabel = 'Запросы отказа';
 
     protected static ?string $navigationGroup = 'Операции';
 

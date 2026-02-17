@@ -16,6 +16,9 @@ class MessageResource extends Resource
     protected static ?string $model = Message::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-bottom-center-text';
+    protected static ?string $navigationLabel = 'Сообщения';
+    protected static ?string $modelLabel = 'Сообщение';
+    protected static ?string $pluralModelLabel = 'Сообщения';
 
     protected static ?string $navigationGroup = 'Операции';
 

@@ -18,6 +18,9 @@ class WorkerResource extends Resource
     protected static ?string $model = Worker::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
+    protected static ?string $navigationLabel = 'Работницы';
+    protected static ?string $modelLabel = 'Работница';
+    protected static ?string $pluralModelLabel = 'Работницы';
 
     protected static ?string $navigationGroup = 'Операции';
 

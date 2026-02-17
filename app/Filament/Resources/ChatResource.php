@@ -16,6 +16,9 @@ class ChatResource extends Resource
     protected static ?string $model = Chat::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-left-right';
+    protected static ?string $navigationLabel = 'Чаты';
+    protected static ?string $modelLabel = 'Чат';
+    protected static ?string $pluralModelLabel = 'Чаты';
 
     protected static ?string $navigationGroup = 'Операции';
 
