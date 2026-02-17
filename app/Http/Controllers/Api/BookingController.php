@@ -232,12 +232,13 @@ class BookingController extends Controller
     {
         $timezone = $worker->timezone ?: 'UTC';
         $dayStartLocal = Carbon::createFromFormat('Y-m-d', $date, $timezone)->startOfDay();
-        $dayEndLocal = $dayStartLocal->copy()->endOfDay();
+        $nextDayStartLocal = $dayStartLocal->copy()->addDay();
 
         $rows = CalendarSlot::query()
             ->where('worker_id', $worker->id)
-            ->where('starts_at', '>=', $dayStartLocal->copy()->utc())
-            ->where('starts_at', '<=', $dayEndLocal->copy()->utc())
+            // Include any slot overlapping this local day, not only slots that start on this day.
+            ->where('starts_at', '<', $nextDayStartLocal->copy()->utc())
+            ->where('ends_at', '>', $dayStartLocal->copy()->utc())
             ->orderBy('starts_at')
             ->get(['starts_at', 'ends_at', 'status']);
 
@@ -247,12 +248,19 @@ class BookingController extends Controller
 
         $slots = [];
         foreach ($rows as $row) {
-            $startLocal = $row->starts_at->copy()->setTimezone($timezone);
-            $endLocal = $row->ends_at->copy()->setTimezone($timezone);
+            $rowStartLocal = $row->starts_at->copy()->setTimezone($timezone);
+            $rowEndLocal = $row->ends_at->copy()->setTimezone($timezone);
+
+            $startLocal = $rowStartLocal->greaterThan($dayStartLocal) ? $rowStartLocal : $dayStartLocal->copy();
+            $endLocal = $rowEndLocal->lessThan($nextDayStartLocal) ? $rowEndLocal : $nextDayStartLocal->copy();
+
+            if ($endLocal->lessThanOrEqualTo($startLocal)) {
+                continue;
+            }
 
             $start = $startLocal->format('H:i');
             $end = $endLocal->format('H:i');
-            $slotDate = $startLocal->format('Y-m-d');
+            $slotDate = $date;
 
             $isAvailable = $row->status === 'available'
                 && ! Cache::has($this->holdSlotKey($worker->id, $slotDate, $start, $end));
