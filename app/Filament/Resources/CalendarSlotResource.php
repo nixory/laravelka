@@ -4,12 +4,14 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CalendarSlotResource\Pages;
 use App\Models\CalendarSlot;
+use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Throwable;
 
 class CalendarSlotResource extends Resource
 {
@@ -28,38 +30,102 @@ class CalendarSlotResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('worker_id')
-                    ->relationship('worker', 'display_name')
-                    ->required()
-                    ->searchable()
-                    ->preload(),
-                Forms\Components\Select::make('order_id')
-                    ->relationship('order', 'id')
-                    ->searchable()
-                    ->preload()
-                    ->unique(ignoreRecord: true),
-                Forms\Components\DateTimePicker::make('starts_at')
-                    ->required(),
-                Forms\Components\DateTimePicker::make('ends_at')
-                    ->required(),
-                Forms\Components\Select::make('status')
-                    ->options([
-                        'available' => 'Доступно',
-                        'reserved' => 'В резерве',
-                        'booked' => 'Забронировано',
-                        'blocked' => 'Заблокировано',
+                Forms\Components\Section::make('Основное')
+                    ->schema([
+                        Forms\Components\Select::make('worker_id')
+                            ->label('Работница')
+                            ->relationship('worker', 'display_name')
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                        Forms\Components\Select::make('order_id')
+                            ->label('Заказ')
+                            ->relationship('order', 'id')
+                            ->searchable()
+                            ->preload()
+                            ->unique(ignoreRecord: true),
+                        Forms\Components\Select::make('status')
+                            ->label('Статус')
+                            ->options([
+                                'available' => 'Доступно',
+                                'reserved' => 'В резерве',
+                                'booked' => 'Забронировано',
+                                'blocked' => 'Заблокировано',
+                            ])
+                            ->required(),
+                        Forms\Components\Select::make('source')
+                            ->label('Источник')
+                            ->options([
+                                'manual' => 'Вручную',
+                                'auto' => 'Авто',
+                                'order' => 'Заказ',
+                            ])
+                            ->required(),
                     ])
-                    ->required(),
-                Forms\Components\Select::make('source')
-                    ->options([
-                        'manual' => 'Вручную',
-                        'auto' => 'Авто',
-                        'order' => 'Заказ',
+                    ->columns(2),
+                Forms\Components\Section::make('Время слота (МСК)')
+                    ->description('Сначала выбери начало, затем длительность. Конец заполнится автоматически.')
+                    ->schema([
+                        Forms\Components\DateTimePicker::make('starts_at')
+                            ->label('Начало')
+                            ->required()
+                            ->timezone('Europe/Moscow')
+                            ->displayFormat('d.m.Y H:i')
+                            ->seconds(false)
+                            ->native(false)
+                            ->live()
+                            ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get): void {
+                                self::applyDurationPreset($set, $get);
+                            }),
+                        Forms\Components\Select::make('duration_preset')
+                            ->label('Длительность')
+                            ->dehydrated(false)
+                            ->options([
+                                '30' => '30 мин',
+                                '60' => '1 час',
+                                '90' => '1.5 часа',
+                                '120' => '2 часа',
+                                '180' => '3 часа',
+                                '240' => '4 часа',
+                                '480' => '8 часов',
+                            ])
+                            ->default('60')
+                            ->live()
+                            ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get): void {
+                                self::applyDurationPreset($set, $get);
+                            }),
+                        Forms\Components\DateTimePicker::make('ends_at')
+                            ->label('Окончание')
+                            ->required()
+                            ->timezone('Europe/Moscow')
+                            ->displayFormat('d.m.Y H:i')
+                            ->seconds(false)
+                            ->native(false)
+                            ->after('starts_at'),
                     ])
-                    ->required(),
+                    ->columns(3),
                 Forms\Components\Textarea::make('notes')
+                    ->label('Комментарий')
                     ->columnSpanFull(),
             ]);
+    }
+
+    private static function applyDurationPreset(Forms\Set $set, Forms\Get $get): void
+    {
+        $startsAt = $get('starts_at');
+        $duration = (int) ($get('duration_preset') ?? 0);
+
+        if (! $startsAt || $duration <= 0) {
+            return;
+        }
+
+        try {
+            $start = Carbon::parse((string) $startsAt);
+        } catch (Throwable) {
+            return;
+        }
+
+        $set('ends_at', $start->copy()->addMinutes($duration)->format('Y-m-d H:i:s'));
     }
 
     public static function table(Table $table): Table
@@ -80,6 +146,13 @@ class CalendarSlotResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'available' => 'Доступно',
+                        'reserved' => 'В резерве',
+                        'booked' => 'Забронировано',
+                        'blocked' => 'Заблокировано',
+                        default => $state,
+                    })
                     ->colors([
                         'success' => 'available',
                         'info' => 'reserved',
@@ -87,7 +160,18 @@ class CalendarSlotResource extends Resource
                         'danger' => 'blocked',
                     ]),
                 Tables\Columns\TextColumn::make('source')
-                    ->badge(),
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'manual' => 'Вручную',
+                        'auto' => 'Авто',
+                        'order' => 'Заказ',
+                        default => $state,
+                    })
+                    ->colors([
+                        'gray' => 'manual',
+                        'info' => 'auto',
+                        'warning' => 'order',
+                    ]),
             ])
             ->filters([
                 SelectFilter::make('status')
