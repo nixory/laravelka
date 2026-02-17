@@ -88,7 +88,12 @@ class TelegramNotifier
             "Order #{$order->id}",
             'Клиент: '.($order->client_name ?: '-'),
             'Товар: '.($order->service_name ?: '-'),
-            'Сумма: '.number_format((float) $order->service_price, 2, '.', ' ').' RUB',
+            'Тариф: '.($order->wooPlan() ?: '-'),
+            'Часы: '.($order->wooHours() ?: '-'),
+            'Сессия: '.$this->orderSessionRange($order),
+            'Доп. услуги: '.$this->formatAddons($order->wooAddons()),
+            'Сумма заказа: '.number_format((float) $order->service_price, 2, '.', ' ').' RUB',
+            'Ваша доля за заказ: '.number_format(((float) $order->service_price) * 0.5, 2, '.', ' ').' RUB',
         ]);
 
         $this->send(
@@ -233,21 +238,54 @@ class TelegramNotifier
 
     private function adminOrderUrl(Order $order): string
     {
-        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/')."/tg/admin/orders/{$order->id}";
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/').'/tg/admin';
     }
 
     private function adminWithdrawalUrl(WithdrawalRequest $request): string
     {
-        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/')."/tg/admin/withdrawals/{$request->id}";
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/').'/tg/admin';
     }
 
     private function adminDeclineUrl(OrderDeclineRequest $request): string
     {
-        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/')."/tg/admin/declines/{$request->id}";
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/').'/tg/admin';
     }
 
     private function workerOrderUrl(Order $order): string
     {
-        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/')."/tg/worker/orders/{$order->id}";
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/').'/tg/worker';
+    }
+
+    private function orderSessionRange(Order $order): string
+    {
+        $sessionDate = trim((string) ($order->wooSessionDate() ?? ''));
+        $sessionTime = trim((string) ($order->wooSessionTime() ?? ''));
+
+        if ($sessionDate !== '' || $sessionTime !== '') {
+            return trim($sessionDate.' '.$sessionTime);
+        }
+
+        if ($order->starts_at && $order->ends_at) {
+            return $order->starts_at->format('d.m.Y H:i').' - '.$order->ends_at->format('H:i');
+        }
+
+        return '-';
+    }
+
+    private function formatAddons(?string $addons): string
+    {
+        $raw = trim((string) $addons);
+        if ($raw === '') {
+            return '-';
+        }
+
+        $parts = preg_split('/\r\n|\r|\n/', $raw) ?: [];
+        $parts = array_values(array_filter(array_map(static fn (string $line): string => trim($line), $parts)));
+
+        if ($parts === []) {
+            return '-';
+        }
+
+        return implode(', ', $parts);
     }
 }

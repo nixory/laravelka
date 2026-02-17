@@ -19,11 +19,11 @@ Route::get('/tg/admin/orders/{order}', function (Order $order) {
     }
 
     if ($user->role === User::ROLE_ADMIN) {
-        return redirect("/admin/orders/{$order->id}/view");
+        return redirect("/admin/orders/{$order->id}");
     }
 
     if ($user->role === User::ROLE_WORKER) {
-        return redirect("/worker/orders/{$order->id}");
+        return redirect('/worker');
     }
 
     return redirect('/');
@@ -43,6 +43,25 @@ Route::get('/tg/admin', function () {
 
     if ($user->role === User::ROLE_WORKER) {
         return redirect('/worker');
+    }
+
+    return redirect('/');
+});
+
+Route::get('/tg/worker', function () {
+    $user = auth()->user();
+
+    if (! $user) {
+        session(['url.intended' => url('/worker')]);
+        return redirect('/worker/login');
+    }
+
+    if ($user->role === User::ROLE_WORKER) {
+        return redirect('/worker');
+    }
+
+    if ($user->role === User::ROLE_ADMIN) {
+        return redirect('/admin');
     }
 
     return redirect('/');
@@ -96,7 +115,7 @@ Route::get('/tg/worker/orders/{order}', function (Order $order) {
     }
 
     if ($user->role === User::ROLE_ADMIN) {
-        return redirect("/admin/orders/{$order->id}/view");
+        return redirect("/admin/orders/{$order->id}");
     }
 
     return redirect('/');
