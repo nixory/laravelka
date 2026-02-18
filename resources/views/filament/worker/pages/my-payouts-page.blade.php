@@ -138,7 +138,7 @@
 
     @if($transactions->isEmpty() && $withdrawals->isEmpty())
         <div class="text-center py-16 text-white/30">
-            <x-heroicon-o-banknotes class="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <div class="text-5xl mb-3">💸</div>
             <p class="text-lg font-medium">Транзакций пока нет</p>
             <p class="text-sm mt-1">Здесь появится история выплат</p>
         </div>
