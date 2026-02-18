@@ -28,11 +28,23 @@ class Order extends Model
     protected $fillable = [
         'external_source',
         'external_order_id',
+        'woo_status',
         'client_name',
         'client_phone',
         'client_email',
         'service_name',
         'service_price',
+        'woo_currency',
+        'woo_payment_method',
+        'woo_plan',
+        'woo_hours',
+        'woo_addons',
+        'woo_session_date',
+        'woo_session_time',
+        'woo_worker_id',
+        'woo_client_telegram',
+        'woo_client_discord',
+        'woo_desired_datetime',
         'starts_at',
         'ends_at',
         'status',
@@ -48,6 +60,7 @@ class Order extends Model
     {
         return [
             'service_price' => 'decimal:2',
+            'woo_session_date' => 'date',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'accepted_at' => 'datetime',
@@ -141,36 +154,64 @@ class Order extends Model
 
     public function wooPlan(): ?string
     {
+        if (! empty($this->woo_plan)) {
+            return (string) $this->woo_plan;
+        }
+
         return $this->metaValue(['План', 'plan', 'tariff']);
     }
 
     public function wooHours(): ?string
     {
+        if (! empty($this->woo_hours)) {
+            return (string) $this->woo_hours;
+        }
+
         return $this->metaValue(['Часы', 'hours']);
     }
 
     public function wooAddons(): ?string
     {
+        if (! empty($this->woo_addons)) {
+            return (string) $this->woo_addons;
+        }
+
         return $this->metaValue(['Дополнительно', 'addons', 'extra_services']);
     }
 
     public function wooSessionDate(): ?string
     {
+        if ($this->woo_session_date) {
+            return $this->woo_session_date->format('Y-m-d');
+        }
+
         return $this->metaValue(['Дата сессии', 'booking_date']);
     }
 
     public function wooSessionTime(): ?string
     {
+        if (! empty($this->woo_session_time)) {
+            return (string) $this->woo_session_time;
+        }
+
         return $this->metaValue(['Время сессии', 'booking_time']);
     }
 
     public function wooWorkerIdFromMeta(): ?string
     {
+        if (! empty($this->woo_worker_id)) {
+            return (string) $this->woo_worker_id;
+        }
+
         return $this->metaValue(['ID работницы', 'worker_id', 'booking_worker_id']);
     }
 
     public function wooClientTelegram(): ?string
     {
+        if (! empty($this->woo_client_telegram)) {
+            return (string) $this->woo_client_telegram;
+        }
+
         return $this->metaValue([
             'billing_tg',
             'billing_telegram',
@@ -182,6 +223,10 @@ class Order extends Model
 
     public function wooClientDiscord(): ?string
     {
+        if (! empty($this->woo_client_discord)) {
+            return (string) $this->woo_client_discord;
+        }
+
         return $this->metaValue([
             'billing_ds',
             'billing_discord',
@@ -193,6 +238,10 @@ class Order extends Model
 
     public function wooDesiredDateTime(): ?string
     {
+        if (! empty($this->woo_desired_datetime)) {
+            return (string) $this->woo_desired_datetime;
+        }
+
         return $this->metaValue([
             'billing_time',
             'Желаемая дата и время',

@@ -36,7 +36,7 @@ class MyOrderResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
-            ->recordUrl(fn (Order $record): string => static::getUrl('view', ['record' => $record]))
+            ->recordUrl(fn(Order $record): string => static::getUrl('view', ['record' => $record]))
             ->columns([
                 Tables\Columns\TextColumn::make('id')->sortable(),
                 Tables\Columns\TextColumn::make('client_name')->searchable(),
@@ -79,17 +79,17 @@ class MyOrderResource extends Resource
                         Forms\Components\Textarea::make('reason_text')
                             ->label('Комментарий')
                             ->rows(4)
-                            ->required(fn (Forms\Get $get): bool => $get('reason_code') === 'other')
+                            ->required(fn(Forms\Get $get): bool => $get('reason_code') === 'other')
                             ->maxLength(2000),
                     ])
                     ->visible(function (Order $record): bool {
                         $user = Filament::auth()->user();
                         $workerId = $user?->workerProfile?->id;
-                        if (! $workerId || (int) $record->worker_id !== (int) $workerId) {
+                        if (!$workerId || (int) $record->worker_id !== (int) $workerId) {
                             return false;
                         }
 
-                        if (! in_array((string) $record->status, [Order::STATUS_ASSIGNED, Order::STATUS_ACCEPTED, Order::STATUS_IN_PROGRESS], true)) {
+                        if (!in_array((string) $record->status, [Order::STATUS_ASSIGNED, Order::STATUS_ACCEPTED, Order::STATUS_IN_PROGRESS], true)) {
                             return false;
                         }
 
@@ -99,12 +99,12 @@ class MyOrderResource extends Resource
                             ->where('status', 'pending')
                             ->exists();
 
-                        return ! $hasPending;
+                        return !$hasPending;
                     })
                     ->action(function (Order $record, array $data): void {
                         $user = Filament::auth()->user();
                         $worker = $user?->workerProfile;
-                        if (! $user || ! $worker) {
+                        if (!$user || !$worker) {
                             return;
                         }
 
@@ -129,54 +129,22 @@ class MyOrderResource extends Resource
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
-            Infolists\Components\Section::make('Клиент')
+            // ── Header row ──────────────────────────────────────────────
+            Infolists\Components\Section::make()
                 ->schema([
-                    Infolists\Components\TextEntry::make('client_name')->label('Имя'),
-                    Infolists\Components\TextEntry::make('client_email')->label('Email')->placeholder('-'),
-                    Infolists\Components\TextEntry::make('client_phone')->label('Телефон')->placeholder('-'),
-                    Infolists\Components\TextEntry::make('wooClientTelegram')
-                        ->label('Telegram')
-                        ->state(fn (Order $record): string => $record->wooClientTelegram() ?: '-'),
-                    Infolists\Components\TextEntry::make('wooClientDiscord')
-                        ->label('Discord')
-                        ->state(fn (Order $record): string => $record->wooClientDiscord() ?: '-'),
-                    Infolists\Components\TextEntry::make('wooDesiredDateTime')
-                        ->label('Желаемая дата и время')
-                        ->state(fn (Order $record): string => $record->wooDesiredDateTime() ?: '-'),
-                ])
-                ->columns(2),
-            Infolists\Components\Section::make('Заказ')
-                ->schema([
-                    Infolists\Components\TextEntry::make('service_name')->label('Товар'),
-                    Infolists\Components\TextEntry::make('service_price')->label('Сумма')->money('RUB'),
-                    Infolists\Components\TextEntry::make('wooPlan')
-                        ->label('Тариф')
-                        ->state(fn (Order $record): string => $record->wooPlan() ?: '-'),
-                    Infolists\Components\TextEntry::make('wooHours')
-                        ->label('Часы')
-                        ->state(fn (Order $record): string => $record->wooHours() ?: '-'),
-                    Infolists\Components\TextEntry::make('wooAddons')
-                        ->label('Доп услуги')
-                        ->state(fn (Order $record): string => $record->wooAddons() ?: '-'),
-                    Infolists\Components\TextEntry::make('sessionRange')
-                        ->label('Сессия')
-                        ->state(function (Order $record): string {
-                            $date = $record->wooSessionDate();
-                            $time = $record->wooSessionTime();
-                            if ($date || $time) {
-                                return trim(($date ?: '').' '.($time ?: ''));
-                            }
-
-                            if ($record->starts_at && $record->ends_at) {
-                                return $record->starts_at->format('d.m.Y H:i').' - '.$record->ends_at->format('H:i');
-                            }
-
-                            return '-';
-                        }),
                     Infolists\Components\TextEntry::make('status')
                         ->label('Статус')
                         ->badge()
-                        ->color(fn (string $state): string => match ($state) {
+                        ->formatStateUsing(fn(string $state): string => match ($state) {
+                            'new' => 'Новый',
+                            'assigned' => 'Назначен',
+                            'accepted' => 'Принят',
+                            'in_progress' => 'В работе',
+                            'done' => 'Выполнен',
+                            'cancelled' => 'Отменён',
+                            default => $state,
+                        })
+                        ->color(fn(string $state): string => match ($state) {
                             'new' => 'gray',
                             'assigned' => 'info',
                             'accepted' => 'warning',
@@ -184,9 +152,83 @@ class MyOrderResource extends Resource
                             'done' => 'success',
                             'cancelled' => 'danger',
                             default => 'gray',
+                        })
+                        ->size(Infolists\Components\TextEntry\TextEntrySize::Large),
+                    Infolists\Components\TextEntry::make('service_price')
+                        ->label('Сумма')
+                        ->money('RUB')
+                        ->icon('heroicon-o-banknotes'),
+                    Infolists\Components\TextEntry::make('sessionRange')
+                        ->label('Сессия')
+                        ->icon('heroicon-o-calendar-days')
+                        ->state(function (Order $record): string {
+                            $date = $record->wooSessionDate();
+                            $time = $record->wooSessionTime();
+                            if ($date || $time) {
+                                return trim(($date ?: '') . ' ' . ($time ?: ''));
+                            }
+                            if ($record->starts_at && $record->ends_at) {
+                                return $record->starts_at->format('d.m.Y H:i') . ' – ' . $record->ends_at->format('H:i');
+                            }
+                            return '—';
                         }),
+                    Infolists\Components\TextEntry::make('service_name')
+                        ->label('Услуга')
+                        ->icon('heroicon-o-sparkles'),
+                    Infolists\Components\TextEntry::make('wooPlan')
+                        ->label('Тариф')
+                        ->state(fn(Order $record): string => $record->wooPlan() ?: '—'),
+                    Infolists\Components\TextEntry::make('wooHours')
+                        ->label('Часы')
+                        ->state(fn(Order $record): string => $record->wooHours() ?: '—'),
+                ])
+                ->columns(3),
+
+            // ── Client contacts ─────────────────────────────────────────
+            Infolists\Components\Section::make('Контакты клиента')
+                ->description('Используй для связи с клиентом')
+                ->icon('heroicon-o-chat-bubble-left-right')
+                ->schema([
+                    Infolists\Components\TextEntry::make('client_name')
+                        ->label('Имя')
+                        ->icon('heroicon-o-user'),
+                    Infolists\Components\TextEntry::make('client_phone')
+                        ->label('Телефон')
+                        ->icon('heroicon-o-phone')
+                        ->placeholder('—')
+                        ->copyable(),
+                    Infolists\Components\TextEntry::make('wooClientTelegram')
+                        ->label('Telegram')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->state(fn(Order $record): string => $record->wooClientTelegram() ?: '—')
+                        ->copyable(),
+                    Infolists\Components\TextEntry::make('wooClientDiscord')
+                        ->label('Discord')
+                        ->icon('heroicon-o-chat-bubble-oval-left')
+                        ->state(fn(Order $record): string => $record->wooClientDiscord() ?: '—')
+                        ->copyable(),
+                    Infolists\Components\TextEntry::make('client_email')
+                        ->label('Email')
+                        ->icon('heroicon-o-envelope')
+                        ->placeholder('—')
+                        ->copyable(),
+                    Infolists\Components\TextEntry::make('wooDesiredDateTime')
+                        ->label('Желаемое время')
+                        ->icon('heroicon-o-clock')
+                        ->state(fn(Order $record): string => $record->wooDesiredDateTime() ?: '—'),
                 ])
                 ->columns(2),
+
+            // ── Order details ────────────────────────────────────────────
+            Infolists\Components\Section::make('Детали заказа')
+                ->schema([
+                    Infolists\Components\TextEntry::make('wooAddons')
+                        ->label('Дополнительные услуги')
+                        ->state(fn(Order $record): string => $record->wooAddons() ?: '—')
+                        ->columnSpanFull(),
+                ])
+                ->columns(1)
+                ->collapsible(),
         ]);
     }
 
@@ -207,7 +249,7 @@ class MyOrderResource extends Resource
             ->requiresConfirmation()
             ->action(function (Order $record): void {
                 $workerId = Filament::auth()->user()?->workerProfile?->id;
-                if (! $workerId || (int) $record->worker_id !== (int) $workerId) {
+                if (!$workerId || (int) $record->worker_id !== (int) $workerId) {
                     return;
                 }
 
@@ -247,12 +289,12 @@ class MyOrderResource extends Resource
                 Forms\Components\Textarea::make('reason_text')
                     ->label('Комментарий')
                     ->rows(4)
-                    ->required(fn (Forms\Get $get): bool => $get('reason_code') === 'other')
+                    ->required(fn(Forms\Get $get): bool => $get('reason_code') === 'other')
                     ->maxLength(2000),
             ])
             ->visible(function (Order $record): bool {
                 $workerId = Filament::auth()->user()?->workerProfile?->id;
-                if (! $workerId || (int) $record->worker_id !== (int) $workerId) {
+                if (!$workerId || (int) $record->worker_id !== (int) $workerId) {
                     return false;
                 }
 
@@ -267,7 +309,7 @@ class MyOrderResource extends Resource
                 $user = Filament::auth()->user();
                 $worker = $user?->workerProfile;
 
-                if (! $user || ! $worker || (int) $record->worker_id !== (int) $worker->id) {
+                if (!$user || !$worker || (int) $record->worker_id !== (int) $worker->id) {
                     return;
                 }
 
@@ -319,7 +361,7 @@ class MyOrderResource extends Resource
         $query = parent::getEloquentQuery();
         $workerId = Filament::auth()->user()?->workerProfile?->id;
 
-        if (! $workerId) {
+        if (!$workerId) {
             return $query->whereRaw('1 = 0');
         }
 

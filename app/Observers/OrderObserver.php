@@ -91,7 +91,7 @@ class OrderObserver
 
     private function shouldNotifyWorkerByWooStatus(Order $order): bool
     {
-        $wooStatus = strtolower((string) data_get($order->meta, 'woo_status', ''));
+        $wooStatus = strtolower((string) ($order->woo_status ?: data_get($order->meta, 'woo_status', '')));
         return in_array($wooStatus, ['processing', 'completed'], true);
     }
 }

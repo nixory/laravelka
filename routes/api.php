@@ -13,8 +13,6 @@ Route::post('/integrations/woo/order-updated', [WooWebhookController::class, 'or
 Route::post('/integrations/woo/report-failure', [WooWebhookController::class, 'reportFailure'])
     ->middleware('throttle:60,1');
 
-Route::get('/bookings/slots', [BookingController::class, 'slots'])
-    ->middleware('throttle:120,1');
 Route::get('/bookings/slots-range', [BookingController::class, 'slotsRange'])
     ->middleware('throttle:120,1');
 

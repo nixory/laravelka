@@ -3,35 +3,19 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\BookingHold;
 use App\Models\CalendarSlot;
 use App\Models\Worker;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class BookingController extends Controller
 {
     private const DISPLAY_TIMEZONE = 'Europe/Moscow';
-
-    public function slots(Request $request): JsonResponse
-    {
-        $this->authorizeRequest($request);
-
-        $data = $request->validate([
-            'worker_id' => ['required', 'integer', 'exists:workers,id'],
-            'date' => ['required', 'date_format:Y-m-d'],
-        ]);
-
-        $worker = Worker::query()->with(['availabilities' => fn ($q) => $q->where('is_active', true)])->findOrFail((int) $data['worker_id']);
-        $date = (string) $data['date'];
-        $slots = $this->resolveSlotsForDate($worker, $date);
-
-        return response()->json([
-            'ok' => true,
-            'slots' => $slots,
-        ]);
-    }
 
     public function slotsRange(Request $request): JsonResponse
     {
@@ -43,8 +27,9 @@ class BookingController extends Controller
             'days' => ['nullable', 'integer', 'min:1', 'max:60'],
         ]);
 
+        $this->cleanupExpiredHolds();
+
         $worker = Worker::query()
-            ->with(['availabilities' => fn ($q) => $q->where('is_active', true)])
             ->findOrFail((int) $data['worker_id']);
 
         $from = (string) ($data['from'] ?? now(self::DISPLAY_TIMEZONE)->format('Y-m-d'));
@@ -91,36 +76,58 @@ class BookingController extends Controller
         $date = (string) $data['date'];
         $start = (string) $data['start'];
         $end = (string) $data['end'];
+        $range = $this->parseRangeToUtc($date, $start, $end);
 
-        if ($this->isSlotBlocked($workerId, $date, $start, $end)) {
+        if ($range === null) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Slot is not available.',
-            ], 409);
+                'message' => 'Invalid time range.',
+            ], 422);
         }
 
+        [$startsAtUtc, $endsAtUtc] = $range;
+
         $ttl = (int) ($data['ttl'] ?? 600);
-        $token = (string) \Illuminate\Support\Str::uuid();
+        $token = (string) Str::uuid();
+
+        $this->cleanupExpiredHolds();
+
+        [$hold, $error] = DB::transaction(function () use ($workerId, $startsAtUtc, $endsAtUtc, $ttl, $token): array {
+            if ($this->hasCalendarOverlap($workerId, $startsAtUtc, $endsAtUtc)) {
+                return [null, 'Slot is not available.'];
+            }
+
+            if ($this->hasActiveHoldOverlap($workerId, $startsAtUtc, $endsAtUtc)) {
+                return [null, 'Slot already held.'];
+            }
+
+            $hold = BookingHold::query()->create([
+                'token' => $token,
+                'worker_id' => $workerId,
+                'starts_at' => $startsAtUtc,
+                'ends_at' => $endsAtUtc,
+                'expires_at' => now()->addSeconds($ttl),
+            ]);
+
+            return [$hold, null];
+        }, 3);
+
+        if ($error !== null || ! $hold) {
+            return response()->json([
+                'ok' => false,
+                'message' => $error ?? 'Could not create hold.',
+            ], 409);
+        }
 
         $payload = [
             'token' => $token,
             'worker_id' => $workerId,
-            'date' => $date,
-            'start' => $start,
-            'end' => $end,
+            'date' => $hold->starts_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('Y-m-d'),
+            'start' => $hold->starts_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('H:i'),
+            'end' => $hold->ends_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('H:i'),
             'created_at' => now()->toIso8601String(),
+            'expires_at' => $hold->expires_at->toIso8601String(),
         ];
-
-        $slotKey = $this->holdSlotKey($workerId, $date, $start, $end);
-
-        if (Cache::has($slotKey)) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Slot already held.',
-            ], 409);
-        }
-
-        Cache::put($slotKey, $payload, now()->addSeconds($ttl));
         Cache::put($this->holdTokenKey($token), $payload, now()->addSeconds($ttl));
 
         return response()->json([
@@ -141,47 +148,75 @@ class BookingController extends Controller
         $token = (string) $data['token'];
         $orderId = isset($data['order_id']) ? (int) $data['order_id'] : null;
 
-        $payload = Cache::get($this->holdTokenKey($token));
-        if (! is_array($payload)) {
+        $this->cleanupExpiredHolds();
+
+        [$confirmed, $error] = DB::transaction(function () use ($token, $orderId): array {
+            $hold = BookingHold::query()
+                ->where('token', $token)
+                ->whereNull('released_at')
+                ->whereNull('confirmed_at')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $hold) {
+                return [null, 'Hold not found or expired.'];
+            }
+
+            if ($hold->expires_at->isPast()) {
+                $hold->released_at = now();
+                $hold->save();
+                return [null, 'Hold not found or expired.'];
+            }
+
+            if ($this->hasCalendarOverlap(
+                (int) $hold->worker_id,
+                $hold->starts_at,
+                $hold->ends_at,
+                $orderId
+            )) {
+                return [null, 'Slot is not available.'];
+            }
+
+            $slot = CalendarSlot::query()->firstOrNew([
+                'worker_id' => (int) $hold->worker_id,
+                'starts_at' => $hold->starts_at,
+                'ends_at' => $hold->ends_at,
+            ]);
+
+            $slot->status = 'booked';
+            $slot->source = 'order';
+            if ($orderId) {
+                $slot->order_id = $orderId;
+            }
+            $slot->save();
+
+            $hold->confirmed_at = now();
+            if ($orderId) {
+                $hold->order_id = $orderId;
+            }
+            $hold->save();
+
+            return [[
+                'worker_id' => (int) $hold->worker_id,
+                'date' => $hold->starts_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('Y-m-d'),
+                'start' => $hold->starts_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('H:i'),
+                'end' => $hold->ends_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('H:i'),
+                'order_id' => $orderId,
+            ], null];
+        }, 3);
+
+        if ($error !== null || ! is_array($confirmed)) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Hold not found or expired.',
-            ], 404);
+                'message' => $error ?? 'Hold not found or expired.',
+            ], 409);
         }
 
-        $worker = Worker::query()->find((int) $payload['worker_id']);
-        if (! $worker) {
-            return response()->json(['ok' => false, 'message' => 'Worker not found.'], 404);
-        }
-
-        $startsAt = Carbon::parse($payload['date'].' '.$payload['start'], self::DISPLAY_TIMEZONE)->utc();
-        $endsAt = Carbon::parse($payload['date'].' '.$payload['end'], self::DISPLAY_TIMEZONE)->utc();
-
-        $slot = CalendarSlot::query()->firstOrNew([
-            'worker_id' => (int) $payload['worker_id'],
-            'starts_at' => $startsAt,
-            'ends_at' => $endsAt,
-        ]);
-
-        $slot->status = 'booked';
-        $slot->source = 'order';
-        if ($orderId && ! $slot->order_id) {
-            $slot->order_id = $orderId;
-        }
-        $slot->save();
-
-        Cache::forget($this->holdSlotKey((int) $payload['worker_id'], (string) $payload['date'], (string) $payload['start'], (string) $payload['end']));
         Cache::forget($this->holdTokenKey($token));
 
         return response()->json([
             'ok' => true,
-            'confirmed' => [
-                'worker_id' => (int) $payload['worker_id'],
-                'date' => (string) $payload['date'],
-                'start' => (string) $payload['start'],
-                'end' => (string) $payload['end'],
-                'order_id' => $orderId,
-            ],
+            'confirmed' => $confirmed,
         ]);
     }
 
@@ -198,16 +233,22 @@ class BookingController extends Controller
 
         if (! empty($data['token'])) {
             $token = (string) $data['token'];
-            $payload = Cache::get($this->holdTokenKey($token));
-            if (is_array($payload)) {
-                Cache::forget($this->holdSlotKey((int) $payload['worker_id'], (string) $payload['date'], (string) $payload['start'], (string) $payload['end']));
-                Cache::forget($this->holdTokenKey($token));
-                $released++;
-            }
+            $released += BookingHold::query()
+                ->where('token', $token)
+                ->whereNull('confirmed_at')
+                ->whereNull('released_at')
+                ->update(['released_at' => now()]);
+
+            Cache::forget($this->holdTokenKey($token));
         }
 
         if (! empty($data['order_id'])) {
             $orderId = (int) $data['order_id'];
+            BookingHold::query()
+                ->where('order_id', $orderId)
+                ->whereNull('released_at')
+                ->update(['released_at' => now()]);
+
             $released += CalendarSlot::query()
                 ->where('order_id', $orderId)
                 ->whereIn('status', ['reserved', 'booked'])
@@ -222,46 +263,6 @@ class BookingController extends Controller
             'ok' => true,
             'released' => $released,
         ]);
-    }
-
-    private function buildSlotsForDate(Worker $worker, string $date): array
-    {
-        $timezone = self::DISPLAY_TIMEZONE;
-        $localDate = Carbon::createFromFormat('Y-m-d', $date, $timezone);
-        $dayOfWeek = $localDate->dayOfWeek;
-
-        $slots = [];
-        $availabilities = $worker->availabilities->where('day_of_week', $dayOfWeek);
-
-        foreach ($availabilities as $availability) {
-            $start = Carbon::createFromFormat('Y-m-d H:i:s', $date.' '.$availability->start_time, $timezone);
-            $end = Carbon::createFromFormat('Y-m-d H:i:s', $date.' '.$availability->end_time, $timezone);
-
-            if ($end->lessThanOrEqualTo($start)) {
-                continue;
-            }
-
-            $cursor = $start->copy();
-            while ($cursor->lessThan($end)) {
-                $slotEnd = $cursor->copy()->addHour();
-                if ($slotEnd->greaterThan($end)) {
-                    break;
-                }
-
-                $slots[] = [
-                    'start' => $cursor->format('H:i'),
-                    'end' => $slotEnd->format('H:i'),
-                    'date' => $date,
-                    'label' => $cursor->format('H:i').' - '.$slotEnd->format('H:i'),
-                ];
-
-                $cursor = $slotEnd;
-            }
-        }
-
-        usort($slots, fn ($a, $b) => strcmp($a['start'], $b['start']));
-
-        return array_values(array_map('unserialize', array_unique(array_map('serialize', $slots))));
     }
 
     private function buildSlotsFromCalendarTable(Worker $worker, string $date): array
@@ -311,6 +312,24 @@ class BookingController extends Controller
             }
         }
 
+        $activeHolds = BookingHold::query()
+            ->where('worker_id', $worker->id)
+            ->whereNull('released_at')
+            ->whereNull('confirmed_at')
+            ->where('expires_at', '>', now())
+            ->where('starts_at', '<', $nextDayStartLocal->copy()->utc())
+            ->where('ends_at', '>', $dayStartLocal->copy()->utc())
+            ->get(['starts_at', 'ends_at']);
+
+        foreach ($activeHolds as $hold) {
+            $holdStartLocal = $hold->starts_at->copy()->setTimezone($timezone);
+            $holdEndLocal = $hold->ends_at->copy()->setTimezone($timezone);
+            $blockedIntervals[] = [
+                'start' => $holdStartLocal->greaterThan($dayStartLocal) ? $holdStartLocal : $dayStartLocal->copy(),
+                'end' => $holdEndLocal->lessThan($nextDayStartLocal) ? $holdEndLocal : $nextDayStartLocal->copy(),
+            ];
+        }
+
         $slots = [];
         foreach ($availableIntervals as $interval) {
             $cursor = $interval['start']->copy();
@@ -330,11 +349,6 @@ class BookingController extends Controller
                 $end = $slotEnd->format('H:i');
                 $slotDate = $date;
 
-                if (Cache::has($this->holdSlotKey($worker->id, $slotDate, $start, $end))) {
-                    $cursor = $slotEnd;
-                    continue;
-                }
-
                 $slots[] = [
                     'start' => $start,
                     'end' => $end,
@@ -352,34 +366,62 @@ class BookingController extends Controller
         return array_values(array_map('unserialize', array_unique(array_map('serialize', $slots))));
     }
 
-    private function isSlotBlocked(int $workerId, string $date, string $start, string $end): bool
+    private function hasCalendarOverlap(
+        int $workerId,
+        Carbon $startsAtUtc,
+        Carbon $endsAtUtc,
+        ?int $ignoreOrderId = null
+    ): bool
     {
-        $worker = Worker::query()->find($workerId);
-        if (! $worker) {
-            return true;
-        }
-
-        $timezone = self::DISPLAY_TIMEZONE;
-        $startsAt = Carbon::parse($date.' '.$start, $timezone)->utc();
-        $endsAt = Carbon::parse($date.' '.$end, $timezone)->utc();
-
-        $bookedExists = CalendarSlot::query()
+        return CalendarSlot::query()
             ->where('worker_id', $workerId)
-            ->where('starts_at', $startsAt)
-            ->where('ends_at', $endsAt)
             ->whereIn('status', ['reserved', 'booked', 'blocked'])
+            ->where('starts_at', '<', $endsAtUtc)
+            ->where('ends_at', '>', $startsAtUtc)
+            ->when($ignoreOrderId, fn ($q) => $q->where(fn ($qq) => $qq->whereNull('order_id')->orWhere('order_id', '!=', $ignoreOrderId)))
             ->exists();
-
-        if ($bookedExists) {
-            return true;
-        }
-
-        return Cache::has($this->holdSlotKey($workerId, $date, $start, $end));
     }
 
-    private function holdSlotKey(int $workerId, string $date, string $start, string $end): string
+    private function hasActiveHoldOverlap(int $workerId, Carbon $startsAtUtc, Carbon $endsAtUtc): bool
     {
-        return 'ops_booking_hold_slot_'.md5($workerId.'|'.$date.'|'.$start.'|'.$end);
+        return BookingHold::query()
+            ->where('worker_id', $workerId)
+            ->whereNull('released_at')
+            ->whereNull('confirmed_at')
+            ->where('expires_at', '>', now())
+            ->where('starts_at', '<', $endsAtUtc)
+            ->where('ends_at', '>', $startsAtUtc)
+            ->exists();
+    }
+
+    private function parseRangeToUtc(string $date, string $start, string $end): ?array
+    {
+        try {
+            $startsAt = Carbon::createFromFormat('Y-m-d H:i', $date.' '.$start, self::DISPLAY_TIMEZONE);
+            $endsAt = Carbon::createFromFormat('Y-m-d H:i', $date.' '.$end, self::DISPLAY_TIMEZONE);
+
+            if ($endsAt->lessThanOrEqualTo($startsAt)) {
+                $endsAt->addDay();
+            }
+
+            // Hard safety bounds for single hold range.
+            if ($endsAt->diffInMinutes($startsAt) > 24 * 60) {
+                return null;
+            }
+
+            return [$startsAt->copy()->utc(), $endsAt->copy()->utc()];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function cleanupExpiredHolds(): void
+    {
+        BookingHold::query()
+            ->whereNull('released_at')
+            ->whereNull('confirmed_at')
+            ->where('expires_at', '<=', now())
+            ->update(['released_at' => now()]);
     }
 
     private function overlapsBlockedIntervals(Carbon $slotStart, Carbon $slotEnd, array $blockedIntervals): bool
@@ -418,17 +460,6 @@ class BookingController extends Controller
 
     private function resolveSlotsForDate(Worker $worker, string $date): array
     {
-        $slots = $this->buildSlotsFromCalendarTable($worker, $date);
-
-        if (count($slots) === 0) {
-            $slots = $this->buildSlotsForDate($worker, $date);
-
-            foreach ($slots as &$slot) {
-                $slot['available'] = ! $this->isSlotBlocked($worker->id, $date, $slot['start'], $slot['end']);
-            }
-            unset($slot);
-        }
-
-        return $slots;
+        return $this->buildSlotsFromCalendarTable($worker, $date);
     }
 }

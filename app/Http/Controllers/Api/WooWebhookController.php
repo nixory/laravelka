@@ -10,9 +10,13 @@ use App\Services\TelegramNotifier;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Arr;
 
 class WooWebhookController extends Controller
 {
+    private const DISPLAY_TIMEZONE = 'Europe/Moscow';
+
     public function orderCreated(
         Request $request,
         OrderAssignmentService $assignmentService,
@@ -27,11 +31,23 @@ class WooWebhookController extends Controller
 
         $raw = $request->all();
         $externalOrderId = (string) $payload['id'];
+        $payloadHash = hash('sha256', (string) json_encode(Arr::sortRecursive($raw), JSON_UNESCAPED_UNICODE));
 
         $order = Order::query()->firstOrNew([
             'external_source' => 'woocommerce',
             'external_order_id' => $externalOrderId,
         ]);
+
+        if ($order->exists && (string) data_get($order->meta, 'woo_payload_hash') === $payloadHash) {
+            return response()->json([
+                'ok' => true,
+                'duplicate' => true,
+                'order_id' => $order->id,
+                'status' => $order->status,
+                'worker_id' => $order->worker_id,
+            ]);
+        }
+
         $previousWooStatus = (string) data_get($order->meta ?? [], 'woo_status', '');
 
         $billing = $raw['billing'] ?? [];
@@ -45,7 +61,24 @@ class WooWebhookController extends Controller
         $sessionDate = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['Дата сессии', 'booking_date']);
         $sessionTimeRange = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['Время сессии', 'booking_time']);
         [$sessionStartFromRange, $sessionEndFromRange] = $this->parseSessionRange($sessionDate, $sessionTimeRange);
+        $sessionStart = $sessionStartFromRange ?: $this->parseDate($this->extractMetaValue($raw, ['starts_at', 'service_start', 'appointment_start']));
+        $sessionEnd = $sessionEndFromRange ?: $this->parseDate($this->extractMetaValue($raw, ['ends_at', 'service_end', 'appointment_end']));
         $orderMeta = $this->normalizeMetaData($raw['meta_data'] ?? []);
+        $wooPlan = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['План', 'plan', 'tariff']);
+        $wooHours = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['Часы', 'hours']);
+        $wooAddons = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['Дополнительно', 'addons', 'extra_services']);
+        $wooClientTelegram = (string) ($orderMeta['billing_tg'] ?? $orderMeta['billing_telegram'] ?? '');
+        $wooClientDiscord = (string) ($orderMeta['billing_ds'] ?? $orderMeta['billing_discord'] ?? '');
+        $wooDesiredDateTime = (string) ($orderMeta['billing_time'] ?? '');
+
+        if (
+            is_numeric($selectedWorkerId)
+            && $sessionStart instanceof Carbon
+            && $sessionEnd instanceof Carbon
+            && $this->hasCalendarConflict((int) $selectedWorkerId, $sessionStart, $sessionEnd, $order->id ?: null)
+        ) {
+            $selectedWorkerId = null;
+        }
 
         $order->fill([
             'client_name' => $clientName !== '' ? $clientName : ($billing['email'] ?? 'Woo Client'),
@@ -53,8 +86,20 @@ class WooWebhookController extends Controller
             'client_email' => $billing['email'] ?? null,
             'service_name' => $lineItems !== '' ? $lineItems : 'Woo service',
             'service_price' => (float) ($raw['total'] ?? 0),
-            'starts_at' => $sessionStartFromRange ?: $this->parseDate($this->extractMetaValue($raw, ['starts_at', 'service_start', 'appointment_start'])),
-            'ends_at' => $sessionEndFromRange ?: $this->parseDate($this->extractMetaValue($raw, ['ends_at', 'service_end', 'appointment_end'])),
+            'woo_status' => $wooStatus,
+            'woo_currency' => $raw['currency'] ?? 'RUB',
+            'woo_payment_method' => $raw['payment_method_title'] ?? null,
+            'woo_plan' => is_string($wooPlan) ? trim($wooPlan) : null,
+            'woo_hours' => is_string($wooHours) ? trim($wooHours) : null,
+            'woo_addons' => is_string($wooAddons) ? trim($wooAddons) : null,
+            'woo_session_date' => $this->parseDateOnly($sessionDate),
+            'woo_session_time' => is_string($sessionTimeRange) ? trim($sessionTimeRange) : null,
+            'woo_worker_id' => is_numeric($selectedWorkerId) ? (int) $selectedWorkerId : null,
+            'woo_client_telegram' => $wooClientTelegram !== '' ? $wooClientTelegram : null,
+            'woo_client_discord' => $wooClientDiscord !== '' ? $wooClientDiscord : null,
+            'woo_desired_datetime' => $wooDesiredDateTime !== '' ? $wooDesiredDateTime : null,
+            'starts_at' => $sessionStart,
+            'ends_at' => $sessionEnd,
             'meta' => [
                 'woo_status' => $wooStatus,
                 'currency' => $raw['currency'] ?? null,
@@ -64,6 +109,7 @@ class WooWebhookController extends Controller
                 'billing_tg' => $orderMeta['billing_tg'] ?? null,
                 'billing_ds' => $orderMeta['billing_ds'] ?? null,
                 'billing_time' => $orderMeta['billing_time'] ?? null,
+                'woo_payload_hash' => $payloadHash,
             ],
         ]);
 
@@ -79,12 +125,38 @@ class WooWebhookController extends Controller
             }
         }
 
+        if (
+            $order->worker_id
+            && $sessionStart instanceof Carbon
+            && $sessionEnd instanceof Carbon
+            && $this->hasCalendarConflict((int) $order->worker_id, $sessionStart, $sessionEnd, $order->id ?: null)
+        ) {
+            $order->worker_id = null;
+            if ($order->status !== Order::STATUS_CANCELLED) {
+                $order->status = Order::STATUS_NEW;
+            }
+        }
+
         if (in_array($wooStatus, ['cancelled', 'failed', 'refunded'], true)) {
             $order->status = Order::STATUS_CANCELLED;
             $order->cancelled_at = $order->cancelled_at ?: now();
         }
 
-        $order->save();
+        try {
+            $order->save();
+        } catch (QueryException $e) {
+            // Idempotency race: another worker inserted same external order simultaneously.
+            $existing = Order::query()->where([
+                'external_source' => 'woocommerce',
+                'external_order_id' => $externalOrderId,
+            ])->first();
+
+            if (! $existing) {
+                throw $e;
+            }
+
+            $order = $existing;
+        }
 
         if ($order->isAutoAssignable()) {
             $assignmentService->assign($order->fresh());
@@ -197,14 +269,14 @@ class WooWebhookController extends Controller
         }
 
         try {
-            $start = Carbon::parse(trim($date).' '.trim($matches[1]));
-            $end = Carbon::parse(trim($date).' '.trim($matches[2]));
+            $start = Carbon::parse(trim($date).' '.trim($matches[1]), self::DISPLAY_TIMEZONE);
+            $end = Carbon::parse(trim($date).' '.trim($matches[2]), self::DISPLAY_TIMEZONE);
 
             if ($end->lessThanOrEqualTo($start)) {
                 $end = $end->copy()->addDay();
             }
 
-            return [$start, $end];
+            return [$start->copy()->utc(), $end->copy()->utc()];
         } catch (\Throwable) {
             return [null, null];
         }
@@ -217,7 +289,20 @@ class WooWebhookController extends Controller
         }
 
         try {
-            return Carbon::parse($value);
+            return Carbon::parse($value, self::DISPLAY_TIMEZONE)->utc();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function parseDateOnly(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse(trim($value), self::DISPLAY_TIMEZONE)->format('Y-m-d');
         } catch (\Throwable) {
             return null;
         }
@@ -286,5 +371,16 @@ class WooWebhookController extends Controller
                     'source' => 'manual',
                 ]);
         }
+    }
+
+    private function hasCalendarConflict(int $workerId, Carbon $startsAtUtc, Carbon $endsAtUtc, ?int $ignoreOrderId = null): bool
+    {
+        return CalendarSlot::query()
+            ->where('worker_id', $workerId)
+            ->whereIn('status', ['reserved', 'booked', 'blocked'])
+            ->where('starts_at', '<', $endsAtUtc)
+            ->where('ends_at', '>', $startsAtUtc)
+            ->when($ignoreOrderId, fn ($q) => $q->where(fn ($qq) => $qq->whereNull('order_id')->orWhere('order_id', '!=', $ignoreOrderId)))
+            ->exists();
     }
 }

@@ -4,7 +4,9 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\OrderResource\Pages;
 use App\Models\Order;
+use App\Models\Worker;
 use App\Services\OrderAssignmentService;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists;
@@ -79,23 +81,23 @@ class OrderResource extends Resource
                 Forms\Components\Placeholder::make('woo_summary')
                     ->label('Детали Woo')
                     ->content(function (?Order $record): string {
-                        if (! $record) {
+                        if (!$record) {
                             return 'Сохраните заказ, чтобы увидеть детали.';
                         }
 
                         $parts = [];
-                        $parts[] = 'План: '.($record->wooPlan() ?: '-');
-                        $parts[] = 'Часы: '.($record->wooHours() ?: '-');
-                        $parts[] = 'Доп услуги: '.($record->wooAddons() ?: '-');
-                        $parts[] = 'Telegram: '.($record->wooClientTelegram() ?: '-');
-                        $parts[] = 'Discord: '.($record->wooClientDiscord() ?: '-');
+                        $parts[] = 'План: ' . ($record->wooPlan() ?: '-');
+                        $parts[] = 'Часы: ' . ($record->wooHours() ?: '-');
+                        $parts[] = 'Доп услуги: ' . ($record->wooAddons() ?: '-');
+                        $parts[] = 'Telegram: ' . ($record->wooClientTelegram() ?: '-');
+                        $parts[] = 'Discord: ' . ($record->wooClientDiscord() ?: '-');
 
                         return implode("\n", $parts);
                     })
                     ->columnSpanFull(),
                 Forms\Components\Textarea::make('meta_json_readonly')
                     ->label('Мета (только чтение, JSON)')
-                    ->formatStateUsing(fn (?Order $record): string => json_encode(
+                    ->formatStateUsing(fn(?Order $record): string => json_encode(
                         $record?->meta ?? [],
                         JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
                     ) ?: '{}')
@@ -109,16 +111,14 @@ class OrderResource extends Resource
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
-            Infolists\Components\Section::make('Ключевые данные')
+            // ── Верхняя строка: статус / воркер / сумма / сессия ──────────────
+            Infolists\Components\Section::make()
                 ->schema([
-                    Infolists\Components\TextEntry::make('external_order_id')
-                        ->label('Woo ID')
-                        ->placeholder('-'),
                     Infolists\Components\TextEntry::make('status_label')
                         ->label('Статус')
-                        ->state(fn (Order $record): string => $record->statusLabel())
+                        ->state(fn(Order $record): string => $record->statusLabel())
                         ->badge()
-                        ->color(fn (Order $record): string => match ((string) $record->status) {
+                        ->color(fn(Order $record): string => match ((string) $record->status) {
                             'new' => 'gray',
                             'assigned' => 'info',
                             'accepted' => 'warning',
@@ -126,37 +126,54 @@ class OrderResource extends Resource
                             'done' => 'success',
                             'cancelled' => 'danger',
                             default => 'gray',
-                        }),
+                        })
+                        ->size(Infolists\Components\TextEntry\TextEntrySize::Large),
+
                     Infolists\Components\TextEntry::make('worker.display_name')
                         ->label('Работница')
-                        ->placeholder('Не назначена'),
+                        ->placeholder('Не назначена')
+                        ->icon('heroicon-o-user')
+                        ->iconColor('primary'),
+
                     Infolists\Components\TextEntry::make('service_price')
                         ->label('Сумма')
-                        ->money('RUB'),
+                        ->money('RUB')
+                        ->icon('heroicon-o-banknotes')
+                        ->iconColor('success'),
+
                     Infolists\Components\TextEntry::make('sessionRange')
                         ->label('Сессия')
+                        ->icon('heroicon-o-calendar-days')
                         ->state(function (Order $record): string {
                             $date = $record->wooSessionDate();
                             $time = $record->wooSessionTime();
                             if ($date || $time) {
-                                return trim(($date ?: '').' '.($time ?: ''));
+                                return trim(($date ?: '') . ' ' . ($time ?: ''));
                             }
 
                             if ($record->starts_at && $record->ends_at) {
-                                return $record->starts_at->timezone('Europe/Moscow')->format('d.m.Y H:i').' - '.$record->ends_at->timezone('Europe/Moscow')->format('H:i');
+                                return $record->starts_at->timezone('Europe/Moscow')->format('d.m.Y H:i') . ' - ' . $record->ends_at->timezone('Europe/Moscow')->format('H:i');
                             }
 
                             return '-';
                         }),
+
+                    Infolists\Components\TextEntry::make('external_order_id')
+                        ->label('Woo ID')
+                        ->placeholder('-')
+                        ->icon('heroicon-o-hashtag'),
+
                     Infolists\Components\TextEntry::make('created_at')
                         ->label('Создан')
-                        ->state(fn (Order $record): string => $record->created_at?->timezone('Europe/Moscow')->format('d.m.Y H:i') ?? '-'),
-                    Infolists\Components\TextEntry::make('updated_at')
-                        ->label('Обновлён')
-                        ->state(fn (Order $record): string => $record->updated_at?->timezone('Europe/Moscow')->format('d.m.Y H:i') ?? '-'),
+                        ->state(fn(Order $record): string => $record->created_at?->timezone('Europe/Moscow')->format('d.m.Y H:i') ?? '-')
+                        ->icon('heroicon-o-clock'),
                 ])
-                ->columns(4),
+                ->columns(6)
+                ->extraAttributes(['class' => 'bg-gray-50 dark:bg-gray-800/50']),
+
+            // ── Клиент ────────────────────────────────────────────────────────
             Infolists\Components\Section::make('Клиент')
+                ->icon('heroicon-o-user-circle')
                 ->collapsible(false)
                 ->schema([
                     Infolists\Components\TextEntry::make('client_name')->label('Имя'),
@@ -164,56 +181,66 @@ class OrderResource extends Resource
                     Infolists\Components\TextEntry::make('client_phone')->label('Телефон')->placeholder('-'),
                     Infolists\Components\TextEntry::make('wooClientTelegram')
                         ->label('Telegram')
-                        ->state(fn (Order $record): string => $record->wooClientTelegram() ?: '-'),
+                        ->state(fn(Order $record): string => $record->wooClientTelegram() ?: '-'),
                     Infolists\Components\TextEntry::make('wooClientDiscord')
                         ->label('Discord')
-                        ->state(fn (Order $record): string => $record->wooClientDiscord() ?: '-'),
+                        ->state(fn(Order $record): string => $record->wooClientDiscord() ?: '-'),
                     Infolists\Components\TextEntry::make('wooDesiredDateTime')
                         ->label('Желаемая дата/время')
-                        ->state(fn (Order $record): string => $record->wooDesiredDateTime() ?: '-'),
+                        ->state(fn(Order $record): string => $record->wooDesiredDateTime() ?: '-'),
                 ])
-                ->columns(2),
-            Infolists\Components\Section::make('Заказ')
+                ->columns(3),
+
+            // ── Услуга / Тариф / Допы ─────────────────────────────────────────
+            Infolists\Components\Section::make('Услуга и тариф')
+                ->icon('heroicon-o-shopping-bag')
                 ->collapsible(false)
                 ->schema([
                     Infolists\Components\TextEntry::make('service_name')->label('Товар'),
                     Infolists\Components\TextEntry::make('wooPlan')
                         ->label('Тариф')
-                        ->state(fn (Order $record): string => $record->wooPlan() ?: '-'),
+                        ->state(fn(Order $record): string => $record->wooPlan() ?: '-')
+                        ->badge()
+                        ->color('info'),
                     Infolists\Components\TextEntry::make('wooHours')
                         ->label('Часы')
-                        ->state(fn (Order $record): string => $record->wooHours() ?: '-'),
+                        ->state(fn(Order $record): string => $record->wooHours() ?: '-'),
                     Infolists\Components\TextEntry::make('wooAddons')
                         ->label('Доп услуги')
-                        ->state(fn (Order $record): string => $record->wooAddons() ?: '-'),
-                    Infolists\Components\TextEntry::make('sessionRange')
+                        ->state(fn(Order $record): string => $record->wooAddons() ?: '-')
+                        ->placeholder('-'),
+                    Infolists\Components\TextEntry::make('sessionRange2')
                         ->label('Сессия')
                         ->state(function (Order $record): string {
                             $date = $record->wooSessionDate();
                             $time = $record->wooSessionTime();
                             if ($date || $time) {
-                                return trim(($date ?: '').' '.($time ?: ''));
+                                return trim(($date ?: '') . ' ' . ($time ?: ''));
                             }
 
                             if ($record->starts_at && $record->ends_at) {
-                                return $record->starts_at->timezone('Europe/Moscow')->format('d.m.Y H:i').' - '.$record->ends_at->timezone('Europe/Moscow')->format('H:i');
+                                return $record->starts_at->timezone('Europe/Moscow')->format('d.m.Y H:i') . ' - ' . $record->ends_at->timezone('Europe/Moscow')->format('H:i');
                             }
 
                             return '-';
                         }),
+                    Infolists\Components\TextEntry::make('service_price')
+                        ->label('Итого')
+                        ->money('RUB'),
                 ])
-                ->columns(2),
-            Infolists\Components\Section::make('Таймлайн')
+                ->columns(3),
+
+            // ── Таймлайн событий ──────────────────────────────────────────────
+            Infolists\Components\Section::make('Таймлайн событий')
+                ->icon('heroicon-o-list-bullet')
                 ->schema([
                     Infolists\Components\RepeatableEntry::make('timeline')
-                        ->state(fn (Order $record): array => $record->timelineEvents())
+                        ->state(fn(Order $record): array => $record->timelineEvents())
                         ->schema([
-                            Infolists\Components\TextEntry::make('title')
-                                ->label('Событие'),
                             Infolists\Components\TextEntry::make('type')
                                 ->label('Тип')
                                 ->badge()
-                                ->formatStateUsing(fn (string $state): string => match ($state) {
+                                ->formatStateUsing(fn(string $state): string => match ($state) {
                                     'created' => 'Создан',
                                     'assigned' => 'Назначен',
                                     'accepted' => 'Принят',
@@ -222,7 +249,7 @@ class OrderResource extends Resource
                                     'declined' => 'Отказ',
                                     default => $state,
                                 })
-                                ->color(fn (string $state): string => match ($state) {
+                                ->color(fn(string $state): string => match ($state) {
                                     'created' => 'gray',
                                     'assigned' => 'info',
                                     'accepted' => 'warning',
@@ -231,6 +258,8 @@ class OrderResource extends Resource
                                     'declined' => 'danger',
                                     default => 'gray',
                                 }),
+                            Infolists\Components\TextEntry::make('title')
+                                ->label('Событие'),
                             Infolists\Components\TextEntry::make('at')
                                 ->label('Время (МСК)'),
                             Infolists\Components\TextEntry::make('note')
@@ -243,6 +272,8 @@ class OrderResource extends Resource
                 ])
                 ->collapsible()
                 ->collapsed(false),
+
+            // ── Позиции заказа (свёрнуто) ─────────────────────────────────────
             Infolists\Components\Section::make('Позиции заказа')
                 ->schema([
                     Infolists\Components\RepeatableEntry::make('meta.line_items')
@@ -258,6 +289,8 @@ class OrderResource extends Resource
                 ])
                 ->collapsible()
                 ->collapsed(),
+
+            // ── Мета (свёрнуто) ───────────────────────────────────────────────
             Infolists\Components\Section::make('Мета заказа')
                 ->schema([
                     Infolists\Components\KeyValueEntry::make('meta.order_meta')
@@ -276,18 +309,28 @@ class OrderResource extends Resource
                 Tables\Columns\TextColumn::make('id')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('external_order_id')
-                    ->label('Внешний ID')
+                    ->label('Woo ID')
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('client_name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('service_name')
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(30),
                 Tables\Columns\TextColumn::make('service_price')
                     ->money('RUB')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'new' => 'Новый',
+                        'assigned' => 'Назначен',
+                        'accepted' => 'Принят',
+                        'in_progress' => 'В работе',
+                        'done' => 'Выполнен',
+                        'cancelled' => 'Отменён',
+                        default => $state,
+                    })
                     ->colors([
                         'gray' => 'new',
                         'info' => 'assigned',
@@ -298,7 +341,25 @@ class OrderResource extends Resource
                     ]),
                 Tables\Columns\TextColumn::make('worker.display_name')
                     ->label('Работница')
-                    ->searchable(),
+                    ->searchable()
+                    ->placeholder('—'),
+                Tables\Columns\TextColumn::make('waiting_minutes')
+                    ->label('Ожидание')
+                    ->state(function (Order $record): string {
+                        if ($record->status !== Order::STATUS_NEW || $record->worker_id) {
+                            return '—';
+                        }
+                        $mins = (int) now()->diffInMinutes($record->created_at);
+                        return "{$mins} мин";
+                    })
+                    ->color(function (Order $record): string {
+                        if ($record->status !== Order::STATUS_NEW || $record->worker_id) {
+                            return 'gray';
+                        }
+                        $mins = (int) now()->diffInMinutes($record->created_at);
+                        return $mins > 10 ? 'danger' : 'warning';
+                    })
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('starts_at')
                     ->dateTime('d.m.Y H:i', 'Europe/Moscow')
                     ->sortable(),
@@ -321,11 +382,41 @@ class OrderResource extends Resource
                     ->label('Работница'),
             ])
             ->actions([
+                Action::make('assignWorker')
+                    ->label('Назначить')
+                    ->icon('heroicon-o-user-plus')
+                    ->color('primary')
+                    ->visible(fn(Order $record): bool => !$record->worker_id && $record->status === Order::STATUS_NEW)
+                    ->form([
+                        Forms\Components\Select::make('worker_id')
+                            ->label('Работница')
+                            ->options(
+                                Worker::query()
+                                    ->where('is_active', true)
+                                    ->orderBy('display_name')
+                                    ->pluck('display_name', 'id')
+                            )
+                            ->searchable()
+                            ->required(),
+                    ])
+                    ->action(function (Order $record, array $data): void {
+                        $record->update([
+                            'worker_id' => $data['worker_id'],
+                            'status' => Order::STATUS_ASSIGNED,
+                            'assigned_by_user_id' => Filament::auth()->id(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Работница назначена')
+                            ->success()
+                            ->send();
+                    }),
+
                 Action::make('autoAssign')
                     ->label('Автоназначение')
                     ->icon('heroicon-o-sparkles')
                     ->requiresConfirmation()
-                    ->visible(fn (Order $record): bool => $record->isAutoAssignable())
+                    ->visible(fn(Order $record): bool => $record->isAutoAssignable())
                     ->action(function (Order $record, OrderAssignmentService $assignmentService): void {
                         $worker = $assignmentService->assign($record);
 
@@ -343,6 +434,7 @@ class OrderResource extends Resource
                             ->warning()
                             ->send();
                     }),
+
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])

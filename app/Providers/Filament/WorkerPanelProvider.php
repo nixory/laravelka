@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Worker\Pages\MyPayoutsPage;
+use App\Filament\Worker\Pages\WorkerProfilePage;
 use App\Filament\Worker\Widgets\WorkerOverview;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -33,7 +35,7 @@ class WorkerPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 'panels::head.end',
-                fn (): string => <<<'HTML'
+                fn(): string => <<<'HTML'
 <style>
     :root {
         --ops-surface: #0b1020;
@@ -125,6 +127,8 @@ HTML
             ->discoverWidgets(in: app_path('Filament/Worker/Widgets'), for: 'App\\Filament\\Worker\\Widgets')
             ->pages([
                 Pages\Dashboard::class,
+                WorkerProfilePage::class,
+                MyPayoutsPage::class,
             ])
             ->widgets([
                 WorkerOverview::class,
