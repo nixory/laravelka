@@ -51,7 +51,7 @@ class WooWebhookController extends Controller
         $previousWooStatus = (string) data_get($order->meta ?? [], 'woo_status', '');
 
         $billing = $raw['billing'] ?? [];
-        $lineItemsRaw = collect($raw['line_items'] ?? [])->values();
+        $lineItemsRaw = collect($this->normalizeLineItems($raw['line_items'] ?? []))->values();
         $lineItems = $lineItemsRaw->pluck('name')->filter()->values()->implode(', ');
         $wooStatus = (string) ($raw['status'] ?? 'pending');
 
@@ -104,7 +104,7 @@ class WooWebhookController extends Controller
                 'woo_status' => $wooStatus,
                 'currency' => $raw['currency'] ?? null,
                 'payment_method' => $raw['payment_method_title'] ?? null,
-                'line_items' => $raw['line_items'] ?? [],
+                'line_items' => $lineItemsRaw->all(),
                 'order_meta' => $orderMeta,
                 'billing_tg' => $orderMeta['billing_tg'] ?? null,
                 'billing_ds' => $orderMeta['billing_ds'] ?? null,
@@ -240,8 +240,13 @@ class WooWebhookController extends Controller
     private function extractLineItemMetaValue(array $lineItems, array $keys): mixed
     {
         foreach ($lineItems as $lineItem) {
-            $meta = $lineItem['meta'] ?? null;
-            if (! is_array($meta)) {
+            if (! is_array($lineItem)) {
+                continue;
+            }
+
+            $meta = $lineItem['meta'] ?? $lineItem['meta_data'] ?? null;
+            $meta = $this->normalizeLineItemMeta($meta);
+            if ($meta === []) {
                 continue;
             }
 
@@ -253,6 +258,75 @@ class WooWebhookController extends Controller
         }
 
         return null;
+    }
+
+    private function normalizeLineItems(mixed $lineItems): array
+    {
+        if (! is_array($lineItems)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($lineItems as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $item['meta'] = $this->normalizeLineItemMeta($item['meta'] ?? $item['meta_data'] ?? []);
+            $normalized[] = $item;
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeLineItemMeta(mixed $meta): array
+    {
+        if (! is_array($meta)) {
+            return [];
+        }
+
+        // Already normalized as key => value map.
+        if (Arr::isAssoc($meta)) {
+            $out = [];
+            foreach ($meta as $key => $value) {
+                $k = is_string($key) ? trim($key) : '';
+                if ($k === '') {
+                    continue;
+                }
+                if (is_array($value) || is_object($value)) {
+                    $out[$k] = json_encode($value, JSON_UNESCAPED_UNICODE);
+                } else {
+                    $out[$k] = $value !== null ? (string) $value : null;
+                }
+            }
+            return $out;
+        }
+
+        // Woo format: [{key,value}, ...] or [{display_key,display_value}, ...].
+        $out = [];
+        foreach ($meta as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $key = isset($row['key']) ? (string) $row['key'] : '';
+            if ($key === '' && isset($row['display_key'])) {
+                $key = (string) $row['display_key'];
+            }
+            $key = trim($key);
+            if ($key === '') {
+                continue;
+            }
+
+            $value = $row['value'] ?? ($row['display_value'] ?? null);
+            if (is_array($value) || is_object($value)) {
+                $out[$key] = json_encode($value, JSON_UNESCAPED_UNICODE);
+            } else {
+                $out[$key] = $value !== null ? trim((string) $value) : null;
+            }
+        }
+
+        return $out;
     }
 
     private function parseSessionRange(mixed $date, mixed $timeRange): array

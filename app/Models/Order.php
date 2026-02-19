@@ -119,8 +119,31 @@ class Order extends Model
                 continue;
             }
 
-            $meta = $lineItem['meta'] ?? [];
-            if (is_array($meta) && $meta !== []) {
+            $meta = $lineItem['meta'] ?? ($lineItem['meta_data'] ?? []);
+            if (!is_array($meta) || $meta === []) {
+                continue;
+            }
+
+            // Legacy/raw Woo format: [{key,value}] or [{display_key,display_value}]
+            if (!\Illuminate\Support\Arr::isAssoc($meta)) {
+                $normalized = [];
+                foreach ($meta as $row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+                    $k = trim((string) ($row['key'] ?? $row['display_key'] ?? ''));
+                    if ($k === '') {
+                        continue;
+                    }
+                    $v = $row['value'] ?? ($row['display_value'] ?? null);
+                    $normalized[$k] = is_scalar($v) || $v === null ? (string) ($v ?? '') : json_encode($v, JSON_UNESCAPED_UNICODE);
+                }
+                if ($normalized !== []) {
+                    return $normalized;
+                }
+            }
+
+            if ($meta !== []) {
                 return $meta;
             }
         }
