@@ -16,7 +16,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 
 class MyOrderResource extends Resource
 {
@@ -267,6 +266,78 @@ class MyOrderResource extends Resource
             });
     }
 
+    public static function startOrderAction(): HeaderAction
+    {
+        return HeaderAction::make('startOrder')
+            ->label('Начать сессию')
+            ->icon('heroicon-o-play-circle')
+            ->color('primary')
+            ->visible(function (Order $record): bool {
+                $workerId = Filament::auth()->user()?->workerProfile?->id;
+
+                return $workerId
+                    && (int) $record->worker_id === (int) $workerId
+                    && (string) $record->status === Order::STATUS_ACCEPTED;
+            })
+            ->requiresConfirmation()
+            ->modalHeading('Начать сессию?')
+            ->modalDescription('Статус заказа будет изменён на «В работе».')
+            ->action(function (Order $record): void {
+                $workerId = Filament::auth()->user()?->workerProfile?->id;
+                if (!$workerId || (int) $record->worker_id !== (int) $workerId) {
+                    return;
+                }
+
+                $record->forceFill([
+                    'status' => Order::STATUS_IN_PROGRESS,
+                ])->save();
+
+                Notification::make()
+                    ->title('Сессия начата')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    public static function completeOrderAction(): HeaderAction
+    {
+        return HeaderAction::make('completeOrder')
+            ->label('Завершить заказ')
+            ->icon('heroicon-o-flag')
+            ->color('success')
+            ->visible(function (Order $record): bool {
+                $workerId = Filament::auth()->user()?->workerProfile?->id;
+
+                return $workerId
+                    && (int) $record->worker_id === (int) $workerId
+                    && in_array((string) $record->status, [
+                        Order::STATUS_ACCEPTED,
+                        Order::STATUS_IN_PROGRESS,
+                    ], true);
+            })
+            ->requiresConfirmation()
+            ->modalHeading('Завершить заказ?')
+            ->modalDescription('Подтвердите, что сессия прошла успешно. Админ получит уведомление, вам будет начислено 50% выплаты.')
+            ->action(function (Order $record): void {
+                $workerId = Filament::auth()->user()?->workerProfile?->id;
+                if (!$workerId || (int) $record->worker_id !== (int) $workerId) {
+                    return;
+                }
+
+                $record->forceFill([
+                    'status' => Order::STATUS_DONE,
+                    'completed_at' => now(),
+                ])->save();
+
+                app(TelegramNotifier::class)->notifyAdminWorkerCompleted($record->fresh(['worker']));
+
+                Notification::make()
+                    ->title('Заказ завершён! Спасибо за работу.')
+                    ->success()
+                    ->send();
+            });
+    }
+
     public static function declineOrderAction(): HeaderAction
     {
         return HeaderAction::make('declineOrder')
@@ -313,36 +384,23 @@ class MyOrderResource extends Resource
                     return;
                 }
 
-                $declineRequest = null;
+                $declineRequest = OrderDeclineRequest::query()->create([
+                    'order_id' => $record->id,
+                    'worker_id' => $worker->id,
+                    'user_id' => $user->id,
+                    'reason_code' => (string) $data['reason_code'],
+                    'reason_text' => (string) ($data['reason_text'] ?? ''),
+                    'status' => 'pending',
+                ]);
 
-                DB::transaction(function () use ($record, $data, $worker, $user, &$declineRequest): void {
-                    $declineRequest = OrderDeclineRequest::query()->create([
-                        'order_id' => $record->id,
-                        'worker_id' => $worker->id,
-                        'user_id' => $user->id,
-                        'reason_code' => (string) $data['reason_code'],
-                        'reason_text' => (string) ($data['reason_text'] ?? ''),
-                        'status' => 'pending',
-                    ]);
-
-                    $record->forceFill([
-                        'worker_id' => null,
-                        'status' => Order::STATUS_NEW,
-                        'assigned_by_user_id' => null,
-                        'accepted_at' => null,
-                    ])->save();
-                });
-
-                if ($declineRequest instanceof OrderDeclineRequest) {
-                    app(TelegramNotifier::class)->notifyAdminWorkerDeclined(
-                        $record->fresh(['worker']),
-                        $declineRequest->fresh(['worker'])
-                    );
-                }
+                app(TelegramNotifier::class)->notifyAdminWorkerDeclined(
+                    $record->fresh(['worker']),
+                    $declineRequest->fresh(['worker'])
+                );
 
                 Notification::make()
-                    ->title('Запрос отправлен, заказ откреплен')
-                    ->success()
+                    ->title('Запрос отправлен администратору. Заказ остаётся за вами до решения.')
+                    ->warning()
                     ->send();
             });
     }

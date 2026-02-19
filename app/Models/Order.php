@@ -49,6 +49,7 @@ class Order extends Model
         'ends_at',
         'status',
         'worker_id',
+        'client_tg_chat_id',
         'assigned_by_user_id',
         'accepted_at',
         'completed_at',
@@ -102,7 +103,7 @@ class Order extends Model
 
     public function isAutoAssignable(): bool
     {
-        return $this->status === self::STATUS_NEW && ! $this->worker_id;
+        return $this->status === self::STATUS_NEW && !$this->worker_id;
     }
 
     public function wooLineItems(): array
@@ -114,7 +115,7 @@ class Order extends Model
     public function wooLineItemMeta(): array
     {
         foreach ($this->wooLineItems() as $lineItem) {
-            if (! is_array($lineItem)) {
+            if (!is_array($lineItem)) {
                 continue;
             }
 
@@ -154,7 +155,7 @@ class Order extends Model
 
     public function wooPlan(): ?string
     {
-        if (! empty($this->woo_plan)) {
+        if (!empty($this->woo_plan)) {
             return (string) $this->woo_plan;
         }
 
@@ -163,7 +164,7 @@ class Order extends Model
 
     public function wooHours(): ?string
     {
-        if (! empty($this->woo_hours)) {
+        if (!empty($this->woo_hours)) {
             return (string) $this->woo_hours;
         }
 
@@ -172,7 +173,7 @@ class Order extends Model
 
     public function wooAddons(): ?string
     {
-        if (! empty($this->woo_addons)) {
+        if (!empty($this->woo_addons)) {
             return (string) $this->woo_addons;
         }
 
@@ -190,7 +191,7 @@ class Order extends Model
 
     public function wooSessionTime(): ?string
     {
-        if (! empty($this->woo_session_time)) {
+        if (!empty($this->woo_session_time)) {
             return (string) $this->woo_session_time;
         }
 
@@ -199,7 +200,7 @@ class Order extends Model
 
     public function wooWorkerIdFromMeta(): ?string
     {
-        if (! empty($this->woo_worker_id)) {
+        if (!empty($this->woo_worker_id)) {
             return (string) $this->woo_worker_id;
         }
 
@@ -208,7 +209,7 @@ class Order extends Model
 
     public function wooClientTelegram(): ?string
     {
-        if (! empty($this->woo_client_telegram)) {
+        if (!empty($this->woo_client_telegram)) {
             return (string) $this->woo_client_telegram;
         }
 
@@ -223,7 +224,7 @@ class Order extends Model
 
     public function wooClientDiscord(): ?string
     {
-        if (! empty($this->woo_client_discord)) {
+        if (!empty($this->woo_client_discord)) {
             return (string) $this->woo_client_discord;
         }
 
@@ -238,7 +239,7 @@ class Order extends Model
 
     public function wooDesiredDateTime(): ?string
     {
-        if (! empty($this->woo_desired_datetime)) {
+        if (!empty($this->woo_desired_datetime)) {
             return (string) $this->woo_desired_datetime;
         }
 
@@ -324,7 +325,7 @@ class Order extends Model
             ];
         }
 
-        usort($events, static fn (array $a, array $b): int => ((int) $a['sort_at']) <=> ((int) $b['sort_at']));
+        usort($events, static fn(array $a, array $b): int => ((int) $a['sort_at']) <=> ((int) $b['sort_at']));
 
         foreach ($events as &$event) {
             unset($event['sort_at']);

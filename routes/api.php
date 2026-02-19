@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\BotController;
 use App\Http\Controllers\Api\WooWebhookController;
 use App\Http\Controllers\Api\BookingController;
 use Illuminate\Support\Facades\Route;
@@ -24,3 +25,7 @@ Route::post('/bookings/holds/confirm', [BookingController::class, 'confirm'])
 
 Route::post('/bookings/holds/release', [BookingController::class, 'release'])
     ->middleware('throttle:120,1');
+
+// Telegram bot internal API
+Route::post('/bot/link-order', [BotController::class, 'linkOrder'])
+    ->middleware('throttle:60,1');

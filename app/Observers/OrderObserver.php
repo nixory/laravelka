@@ -12,8 +12,7 @@ class OrderObserver
     public function __construct(
         private readonly OrderAssignmentService $assignmentService,
         private readonly TelegramNotifier $telegramNotifier
-    )
-    {
+    ) {
     }
 
     public function created(Order $order): void
@@ -41,17 +40,24 @@ class OrderObserver
             && $order->status === Order::STATUS_ASSIGNED
             && $this->shouldNotifyWorkerByWooStatus($order)
         ) {
-            $this->telegramNotifier->notifyWorkerNewOrder($order->fresh(['worker']));
+            $fresh = $order->fresh(['worker']);
+            $this->telegramNotifier->notifyWorkerNewOrder($fresh);
+            $this->telegramNotifier->notifyClientOrderAssigned($fresh);
+        }
+
+        if ($order->wasChanged('status') && $order->status === Order::STATUS_ACCEPTED) {
+            $this->telegramNotifier->notifyClientOrderAccepted($order->fresh(['worker']));
         }
 
         if ($order->wasChanged('status') && $order->status === Order::STATUS_DONE) {
             $this->applyWorkerCompletionPayout($order);
+            $this->telegramNotifier->notifyClientOrderDone($order->fresh(['worker']));
         }
     }
 
     private function applyWorkerCompletionPayout(Order $order): void
     {
-        if (! $order->worker_id) {
+        if (!$order->worker_id) {
             return;
         }
 

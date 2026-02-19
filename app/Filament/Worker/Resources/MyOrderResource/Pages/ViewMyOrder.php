@@ -13,6 +13,8 @@ class ViewMyOrder extends ViewRecord
     {
         return [
             MyOrderResource::takeOrderAction(),
+            MyOrderResource::startOrderAction(),
+            MyOrderResource::completeOrderAction(),
             MyOrderResource::declineOrderAction(),
             MyOrderResource::supportAction(),
         ];

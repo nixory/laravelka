@@ -16,14 +16,16 @@ class TelegramNotifier
         $text = implode("\n", [
             "🆕 <b>Новый заказ (processing)</b>",
             "Order #{$order->id} (Woo #{$order->external_order_id})",
-            'Клиент: '.($order->client_name ?: '-'),
-            'Товар: '.($order->service_name ?: '-'),
-            'Сумма: '.number_format((float) $order->service_price, 2, '.', ' ').' RUB',
+            'Клиент: ' . ($order->client_name ?: '-'),
+            'Товар: ' . ($order->service_name ?: '-'),
+            'Сумма: ' . number_format((float) $order->service_price, 2, '.', ' ') . ' RUB',
         ]);
 
-        $this->sendToAdmin($text, [[
-            ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
-        ]]);
+        $this->sendToAdmin($text, [
+            [
+                ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
+            ]
+        ]);
     }
 
     public function notifyAdminWithdrawalRequested(WithdrawalRequest $request): void
@@ -31,14 +33,16 @@ class TelegramNotifier
         $text = implode("\n", [
             "💸 <b>Новая заявка на вывод</b>",
             "Request #{$request->id}",
-            'Воркер: '.($request->worker?->display_name ?: '-'),
-            'Сумма: '.number_format((float) $request->amount, 2, '.', ' ').' '.($request->currency ?: 'RUB'),
-            'Метод: '.($request->payment_method ?: '-'),
+            'Воркер: ' . ($request->worker?->display_name ?: '-'),
+            'Сумма: ' . number_format((float) $request->amount, 2, '.', ' ') . ' ' . ($request->currency ?: 'RUB'),
+            'Метод: ' . ($request->payment_method ?: '-'),
         ]);
 
-        $this->sendToAdmin($text, [[
-            ['text' => 'Открыть заявку', 'url' => $this->adminWithdrawalUrl($request)],
-        ]]);
+        $this->sendToAdmin($text, [
+            [
+                ['text' => 'Открыть заявку', 'url' => $this->adminWithdrawalUrl($request)],
+            ]
+        ]);
     }
 
     public function notifyAdminWorkerAccepted(Order $order): void
@@ -46,13 +50,32 @@ class TelegramNotifier
         $text = implode("\n", [
             "✅ <b>Работница взялась за заказ</b>",
             "Order #{$order->id}",
-            'Воркер: '.($order->worker?->display_name ?: '-'),
-            'Клиент: '.($order->client_name ?: '-'),
+            'Воркер: ' . ($order->worker?->display_name ?: '-'),
+            'Клиент: ' . ($order->client_name ?: '-'),
         ]);
 
-        $this->sendToAdmin($text, [[
-            ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
-        ]]);
+        $this->sendToAdmin($text, [
+            [
+                ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
+            ]
+        ]);
+    }
+
+    public function notifyAdminWorkerCompleted(Order $order): void
+    {
+        $text = implode("\n", [
+            "🏁 <b>Работница завершила заказ</b>",
+            "Order #{$order->id}",
+            'Воркер: ' . ($order->worker?->display_name ?: '-'),
+            'Клиент: ' . ($order->client_name ?: '-'),
+            'Сумма: ' . number_format((float) $order->service_price, 2, '.', ' ') . ' RUB',
+        ]);
+
+        $this->sendToAdmin($text, [
+            [
+                ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
+            ]
+        ]);
     }
 
     public function notifyAdminWorkerDeclined(Order $order, OrderDeclineRequest $declineRequest): void
@@ -60,38 +83,40 @@ class TelegramNotifier
         $text = implode("\n", [
             "❌ <b>Работница отказалась от заказа</b>",
             "Order #{$order->id}",
-            'Воркер: '.($declineRequest->worker?->display_name ?: '-'),
-            'Причина: '.($declineRequest->reason_code ?: '-'),
-            'Комментарий: '.(($declineRequest->reason_text ?: '-') ?: '-'),
+            'Воркер: ' . ($declineRequest->worker?->display_name ?: '-'),
+            'Причина: ' . ($declineRequest->reason_code ?: '-'),
+            'Комментарий: ' . (($declineRequest->reason_text ?: '-') ?: '-'),
         ]);
 
-        $this->sendToAdmin($text, [[
-            ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
-            ['text' => 'Открыть отказ', 'url' => $this->adminDeclineUrl($declineRequest)],
-        ]]);
+        $this->sendToAdmin($text, [
+            [
+                ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
+                ['text' => 'Открыть отказ', 'url' => $this->adminDeclineUrl($declineRequest)],
+            ]
+        ]);
     }
 
     public function notifyWorkerNewOrder(Order $order): void
     {
         $worker = $order->worker;
-        if (! $worker) {
+        if (!$worker) {
             return;
         }
 
         $chatId = $this->resolveWorkerChatId($worker);
-        if (! $chatId) {
+        if (!$chatId) {
             return;
         }
 
         $text = implode("\n", [
             "📥 <b>Новый заказ</b>",
             "Order #{$order->id}",
-            'Клиент: '.($order->client_name ?: '-'),
-            'Тариф: '.($order->wooPlan() ?: '-'),
-            'Часы: '.($order->wooHours() ?: '-'),
-            'Сессия: '.$this->orderSessionRange($order),
-            'Доп. услуги: '.$this->formatAddons($order->wooAddons()),
-            'Ваша доля за заказ: '.number_format(((float) $order->service_price) * 0.5, 2, '.', ' ').' RUB',
+            'Клиент: ' . ($order->client_name ?: '-'),
+            'Тариф: ' . ($order->wooPlan() ?: '-'),
+            'Часы: ' . ($order->wooHours() ?: '-'),
+            'Сессия: ' . $this->orderSessionRange($order),
+            'Доп. услуги: ' . $this->formatAddons($order->wooAddons()),
+            'Ваша доля за заказ: ' . number_format(((float) $order->service_price) * 0.5, 2, '.', ' ') . ' RUB',
         ]);
 
         $this->send(
@@ -104,20 +129,20 @@ class TelegramNotifier
     public function notifyWorkerStartReminder(Order $order, int $minutesBefore): void
     {
         $worker = $order->worker;
-        if (! $worker || ! $order->starts_at) {
+        if (!$worker || !$order->starts_at) {
             return;
         }
 
         $chatId = $this->resolveWorkerChatId($worker);
-        if (! $chatId) {
+        if (!$chatId) {
             return;
         }
 
         $text = implode("\n", [
             "⏰ <b>Напоминание о заказе</b>",
             "Order #{$order->id} стартует через {$minutesBefore} мин.",
-            'Время старта: '.$order->starts_at->timezone('Europe/Moscow')->format('d.m.Y H:i').' (МСК)',
-            'Клиент: '.($order->client_name ?: '-'),
+            'Время старта: ' . $order->starts_at->timezone('Europe/Moscow')->format('d.m.Y H:i') . ' (МСК)',
+            'Клиент: ' . ($order->client_name ?: '-'),
         ]);
 
         $this->send(
@@ -133,12 +158,14 @@ class TelegramNotifier
             "⚠️ <b>Заказ без назначенного воркера</b>",
             "Order #{$order->id} (Woo #{$order->external_order_id})",
             "Возраст: {$ageMinutes} мин",
-            'Клиент: '.($order->client_name ?: '-'),
+            'Клиент: ' . ($order->client_name ?: '-'),
         ]);
 
-        $this->sendToAdmin($text, [[
-            ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
-        ]]);
+        $this->sendToAdmin($text, [
+            [
+                ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
+            ]
+        ]);
     }
 
     public function notifyAdminOrderStartsSoonNotAccepted(Order $order, int $minutesLeft): void
@@ -146,13 +173,15 @@ class TelegramNotifier
         $text = implode("\n", [
             "🚨 <b>Скоро старт заказа, но нет подтверждения</b>",
             "Order #{$order->id} стартует через {$minutesLeft} мин",
-            'Текущий статус: '.($order->status ?: '-'),
-            'Воркер: '.($order->worker?->display_name ?: '-'),
+            'Текущий статус: ' . ($order->status ?: '-'),
+            'Воркер: ' . ($order->worker?->display_name ?: '-'),
         ]);
 
-        $this->sendToAdmin($text, [[
-            ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
-        ]]);
+        $this->sendToAdmin($text, [
+            [
+                ['text' => 'Открыть заказ', 'url' => $this->adminOrderUrl($order)],
+            ]
+        ]);
     }
 
     public function notifyAdminWebhookFailed(array $payload): void
@@ -169,12 +198,14 @@ class TelegramNotifier
             "Order ID: {$orderId}",
             "Attempt: {$attempt}",
             "HTTP: {$httpCode}",
-            'Error: '.($error !== '' ? mb_strimwidth($error, 0, 250, '...') : '-'),
+            'Error: ' . ($error !== '' ? mb_strimwidth($error, 0, 250, '...') : '-'),
         ]);
 
-        $this->sendToAdmin($text, [[
-            ['text' => 'Открыть админку', 'url' => rtrim((string) config('services.telegram.admin_panel_url'), '/')],
-        ]]);
+        $this->sendToAdmin($text, [
+            [
+                ['text' => 'Открыть админку', 'url' => rtrim((string) config('services.telegram.admin_panel_url'), '/')],
+            ]
+        ]);
     }
 
     private function sendToAdmin(string $text, array $buttons = []): void
@@ -236,22 +267,22 @@ class TelegramNotifier
 
     private function adminOrderUrl(Order $order): string
     {
-        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/').'/tg/admin';
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/') . '/tg/admin';
     }
 
     private function adminWithdrawalUrl(WithdrawalRequest $request): string
     {
-        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/').'/tg/admin';
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/') . '/tg/admin';
     }
 
     private function adminDeclineUrl(OrderDeclineRequest $request): string
     {
-        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/').'/tg/admin';
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/') . '/tg/admin';
     }
 
     private function workerOrderUrl(Order $order): string
     {
-        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/').'/tg/worker';
+        return rtrim((string) config('app.url', 'https://ops.egirlz.chat'), '/') . '/tg/worker';
     }
 
     private function orderSessionRange(Order $order): string
@@ -260,11 +291,11 @@ class TelegramNotifier
         $sessionTime = trim((string) ($order->wooSessionTime() ?? ''));
 
         if ($sessionDate !== '' || $sessionTime !== '') {
-            return trim($sessionDate.' '.$sessionTime);
+            return trim($sessionDate . ' ' . $sessionTime);
         }
 
         if ($order->starts_at && $order->ends_at) {
-            return $order->starts_at->format('d.m.Y H:i').' - '.$order->ends_at->format('H:i');
+            return $order->starts_at->format('d.m.Y H:i') . ' - ' . $order->ends_at->format('H:i');
         }
 
         return '-';
@@ -278,12 +309,134 @@ class TelegramNotifier
         }
 
         $parts = preg_split('/\r\n|\r|\n/', $raw) ?: [];
-        $parts = array_values(array_filter(array_map(static fn (string $line): string => trim($line), $parts)));
+        $parts = array_values(array_filter(array_map(static fn(string $line): string => trim($line), $parts)));
 
         if ($parts === []) {
             return '-';
         }
 
         return implode(', ', $parts);
+    }
+
+    // ─── CLIENT NOTIFICATIONS ──────────────────────────────────────────────────
+
+    public function notifyClientOrderLinked(Order $order): void
+    {
+        $chatId = $order->client_tg_chat_id;
+        if (!$chatId) {
+            return;
+        }
+
+        $session = $this->orderSessionRange($order);
+        $service = $order->service_name ?: '-';
+        $worker = $order->worker;
+
+        $lines = [
+            "✅ <b>Ваш заказ #{$order->external_order_id} подключён!</b>",
+            "",
+            "📋 <b>Детали:</b>",
+            "• Услуга: {$service}",
+            "• Сессия: {$session}",
+        ];
+
+        if ($worker) {
+            $lines[] = "• Работница: {$worker->display_name}";
+        }
+
+        $lines[] = "";
+        $lines[] = "Мы пришлём уведомление когда статус изменится 🔔";
+
+        $this->sendToClient($chatId, implode("\n", $lines));
+    }
+
+    public function notifyClientOrderAssigned(Order $order): void
+    {
+        $chatId = $order->client_tg_chat_id;
+        if (!$chatId) {
+            return;
+        }
+
+        $session = $this->orderSessionRange($order);
+        $worker = $order->worker;
+
+        $lines = [
+            "👩‍💻 <b>Работница назначена на ваш заказ!</b>",
+            "",
+            "• Заказ: #{$order->external_order_id}",
+            "• Сессия: {$session}",
+        ];
+
+        if ($worker) {
+            $lines[] = "• Работница: {$worker->display_name}";
+        }
+
+        $this->sendToClient($chatId, implode("\n", $lines));
+    }
+
+    public function notifyClientOrderAccepted(Order $order): void
+    {
+        $chatId = $order->client_tg_chat_id;
+        if (!$chatId) {
+            return;
+        }
+
+        $session = $this->orderSessionRange($order);
+        $worker = $order->worker;
+
+        $lines = [
+            "🙌 <b>Работница приняла ваш заказ!</b>",
+            "",
+            "• Заказ: #{$order->external_order_id}",
+            "• Сессия: {$session}",
+        ];
+
+        if ($worker) {
+            $lines[] = "• Работница: {$worker->display_name}";
+        }
+
+        $lines[] = "";
+        $lines[] = "Ждём вас в назначенное время 🎮";
+
+        $this->sendToClient($chatId, implode("\n", $lines));
+    }
+
+    public function notifyClientOrderDone(Order $order): void
+    {
+        $chatId = $order->client_tg_chat_id;
+        if (!$chatId) {
+            return;
+        }
+
+        $lines = [
+            "🏁 <b>Ваш заказ завершён!</b>",
+            "",
+            "• Заказ: #{$order->external_order_id}",
+            "• Услуга: " . ($order->service_name ?: '-'),
+            "",
+            "Спасибо что выбрали нас! Если понравилось — возвращайтесь 💕",
+        ];
+
+        $this->sendToClient($chatId, implode("\n", $lines));
+    }
+
+    private function sendToClient(string $chatId, string $text): void
+    {
+        $token = config('services.telegram.bot_token');
+        if (!$token) {
+            return;
+        }
+
+        try {
+            Http::post("https://api.telegram.org/bot{$token}/sendMessage", [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'parse_mode' => 'HTML',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('TelegramNotifier: sendToClient failed', [
+                'chat_id' => $chatId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
