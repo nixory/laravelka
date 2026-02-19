@@ -215,12 +215,13 @@ class TelegramNotifier
             return;
         }
 
-        $this->send($chatId, $text, $buttons);
+        $token = (string) config('services.telegram.admin_bot_token', '');
+        $this->send($chatId, $text, $buttons, $token);
     }
 
-    private function send(string $chatId, string $text, array $buttons = []): void
+    private function send(string $chatId, string $text, array $buttons = [], ?string $token = null): void
     {
-        $token = (string) config('services.telegram.bot_token');
+        $token = trim((string) ($token ?? config('services.telegram.bot_token')));
         if ($token === '' || $chatId === '') {
             return;
         }
@@ -421,22 +422,7 @@ class TelegramNotifier
 
     private function sendToClient(string $chatId, string $text): void
     {
-        $token = config('services.telegram.bot_token');
-        if (!$token) {
-            return;
-        }
-
-        try {
-            Http::post("https://api.telegram.org/bot{$token}/sendMessage", [
-                'chat_id' => $chatId,
-                'text' => $text,
-                'parse_mode' => 'HTML',
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('TelegramNotifier: sendToClient failed', [
-                'chat_id' => $chatId,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        $token = (string) config('services.telegram.client_bot_token', '');
+        $this->send($chatId, $text, [], $token);
     }
 }

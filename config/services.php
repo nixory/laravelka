@@ -45,7 +45,10 @@ return [
     ],
 
     'telegram' => [
+        // Backward compatibility: if split tokens are not set, TELEGRAM_BOT_TOKEN is used for both.
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'client_bot_token' => env('TELEGRAM_CLIENT_BOT_TOKEN', env('TELEGRAM_BOT_TOKEN')),
+        'admin_bot_token' => env('TELEGRAM_ADMIN_BOT_TOKEN', env('TELEGRAM_BOT_TOKEN')),
         'bot_url' => env('TELEGRAM_BOT_URL', 'https://t.me/egirlz_bot'),
         'bot_secret' => env('TELEGRAM_BOT_SECRET'),
         'admin_chat_id' => env('TELEGRAM_ADMIN_CHAT_ID'),
