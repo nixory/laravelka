@@ -29,3 +29,7 @@ Route::post('/bookings/holds/release', [BookingController::class, 'release'])
 // Telegram bot internal API
 Route::post('/bot/link-order', [BotController::class, 'linkOrder'])
     ->middleware('throttle:60,1');
+
+// Client-facing order status (for thank you page polling)
+Route::get('/client/order-status', [\App\Http\Controllers\Api\ClientOrderController::class, 'status'])
+    ->middleware('throttle:120,1');
