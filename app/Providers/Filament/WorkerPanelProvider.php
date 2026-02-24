@@ -2,7 +2,6 @@
 
 namespace App\Providers\Filament;
 
-use App\Filament\Worker\Pages\MyPayoutsPage;
 use App\Filament\Worker\Pages\WorkerProfilePage;
 use App\Filament\Worker\Widgets\WorkerOverview;
 use Filament\Http\Middleware\Authenticate;
@@ -128,7 +127,6 @@ HTML
             ->pages([
                 Pages\Dashboard::class,
                 WorkerProfilePage::class,
-                MyPayoutsPage::class,
             ])
             ->widgets([
                 WorkerOverview::class,
