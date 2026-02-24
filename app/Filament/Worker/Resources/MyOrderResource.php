@@ -317,7 +317,7 @@ class MyOrderResource extends Resource
             })
             ->requiresConfirmation()
             ->modalHeading('Завершить заказ?')
-            ->modalDescription('Подтвердите, что сессия прошла успешно. Админ получит уведомление, вам будет начислено 50% выплаты.')
+            ->modalDescription('Подтвердите, что сессия прошла успешно. Админ получит уведомление, вам будет начислено ваши 60% выплаты.')
             ->action(function (Order $record): void {
                 $workerId = Filament::auth()->user()?->workerProfile?->id;
                 if (!$workerId || (int) $record->worker_id !== (int) $workerId) {

@@ -86,7 +86,7 @@ class OrderObserver
             'status' => 'confirmed',
             'amount' => $payoutAmount,
             'currency' => 'RUB',
-            'description' => sprintf('Order #%d completed payout (50%%)', $order->id),
+            'description' => sprintf('Order #%d completed payout (60%%)', $order->id),
             'meta' => [
                 'rule' => 'order_completed_50_percent',
                 'order_service_price' => $baseAmount,
