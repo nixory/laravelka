@@ -21,8 +21,7 @@ class WooWebhookController extends Controller
         Request $request,
         OrderAssignmentService $assignmentService,
         TelegramNotifier $telegramNotifier
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $this->authorizeRequest($request);
 
         $payload = $request->validate([
@@ -55,7 +54,7 @@ class WooWebhookController extends Controller
         $lineItems = $lineItemsRaw->pluck('name')->filter()->values()->implode(', ');
         $wooStatus = (string) ($raw['status'] ?? 'pending');
 
-        $clientName = trim((($billing['first_name'] ?? '').' '.($billing['last_name'] ?? '')));
+        $clientName = trim((($billing['first_name'] ?? '') . ' ' . ($billing['last_name'] ?? '')));
 
         $selectedWorkerId = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['ID работницы', 'worker_id', 'booking_worker_id']);
         $sessionDate = $this->extractLineItemMetaValue($lineItemsRaw->all(), ['Дата сессии', 'booking_date']);
@@ -113,14 +112,20 @@ class WooWebhookController extends Controller
             ],
         ]);
 
-        if (! $order->exists) {
+        if (!$order->exists) {
             $order->status = Order::STATUS_NEW;
         }
 
-        if (is_numeric($selectedWorkerId)) {
-            $order->worker_id = (int) $selectedWorkerId;
+        $isPaid = in_array($wooStatus, ['processing', 'completed'], true);
 
-            if (in_array((string) $order->status, [Order::STATUS_NEW, Order::STATUS_ASSIGNED], true)) {
+        if (is_numeric($selectedWorkerId)) {
+            if ($isPaid) {
+                $order->worker_id = (int) $selectedWorkerId;
+            } else {
+                $order->meta['requested_worker_id'] = (int) $selectedWorkerId;
+            }
+
+            if ($order->worker_id && in_array((string) $order->status, [Order::STATUS_NEW, Order::STATUS_ASSIGNED], true)) {
                 $order->status = Order::STATUS_ASSIGNED;
             }
         }
@@ -151,15 +156,30 @@ class WooWebhookController extends Controller
                 'external_order_id' => $externalOrderId,
             ])->first();
 
-            if (! $existing) {
+            if (!$existing) {
                 throw $e;
             }
 
             $order = $existing;
         }
 
-        if ($order->isAutoAssignable()) {
+        if ($order->isAutoAssignable() && $isPaid && !isset($order->meta['requested_worker_id'])) {
             $assignmentService->assign($order->fresh());
+        } elseif ($isPaid && isset($order->meta['requested_worker_id']) && !$order->worker_id) {
+            // Late assignment if the order was paid and a worker was requested
+            $requestedWorkerId = (int) $order->meta['requested_worker_id'];
+            if (!$this->hasCalendarConflict($requestedWorkerId, $sessionStart, $sessionEnd, $order->id ?: null)) {
+                $order->worker_id = $requestedWorkerId;
+                if ($order->status === Order::STATUS_NEW) {
+                    $order->status = Order::STATUS_ASSIGNED;
+                }
+                $order->save();
+
+                $meta = $order->meta;
+                unset($meta['requested_worker_id']);
+                $order->meta = $meta;
+                $order->save();
+            }
         }
 
         $this->syncCalendarSlotForWooStatus($order, $wooStatus);
@@ -240,7 +260,7 @@ class WooWebhookController extends Controller
     private function extractLineItemMetaValue(array $lineItems, array $keys): mixed
     {
         foreach ($lineItems as $lineItem) {
-            if (! is_array($lineItem)) {
+            if (!is_array($lineItem)) {
                 continue;
             }
 
@@ -262,13 +282,13 @@ class WooWebhookController extends Controller
 
     private function normalizeLineItems(mixed $lineItems): array
     {
-        if (! is_array($lineItems)) {
+        if (!is_array($lineItems)) {
             return [];
         }
 
         $normalized = [];
         foreach ($lineItems as $item) {
-            if (! is_array($item)) {
+            if (!is_array($item)) {
                 continue;
             }
 
@@ -281,7 +301,7 @@ class WooWebhookController extends Controller
 
     private function normalizeLineItemMeta(mixed $meta): array
     {
-        if (! is_array($meta)) {
+        if (!is_array($meta)) {
             return [];
         }
 
@@ -305,7 +325,7 @@ class WooWebhookController extends Controller
         // Woo format: [{key,value}, ...] or [{display_key,display_value}, ...].
         $out = [];
         foreach ($meta as $row) {
-            if (! is_array($row)) {
+            if (!is_array($row)) {
                 continue;
             }
 
@@ -331,20 +351,20 @@ class WooWebhookController extends Controller
 
     private function parseSessionRange(mixed $date, mixed $timeRange): array
     {
-        if (! is_string($date) || trim($date) === '') {
+        if (!is_string($date) || trim($date) === '') {
             return [null, null];
         }
-        if (! is_string($timeRange) || trim($timeRange) === '') {
+        if (!is_string($timeRange) || trim($timeRange) === '') {
             return [null, null];
         }
 
-        if (! preg_match('/^\\s*(\\d{1,2}:\\d{2})\\s*-\\s*(\\d{1,2}:\\d{2})\\s*$/', $timeRange, $matches)) {
+        if (!preg_match('/^\\s*(\\d{1,2}:\\d{2})\\s*-\\s*(\\d{1,2}:\\d{2})\\s*$/', $timeRange, $matches)) {
             return [null, null];
         }
 
         try {
-            $start = Carbon::parse(trim($date).' '.trim($matches[1]), self::DISPLAY_TIMEZONE);
-            $end = Carbon::parse(trim($date).' '.trim($matches[2]), self::DISPLAY_TIMEZONE);
+            $start = Carbon::parse(trim($date) . ' ' . trim($matches[1]), self::DISPLAY_TIMEZONE);
+            $end = Carbon::parse(trim($date) . ' ' . trim($matches[2]), self::DISPLAY_TIMEZONE);
 
             if ($end->lessThanOrEqualTo($start)) {
                 $end = $end->copy()->addDay();
@@ -358,7 +378,7 @@ class WooWebhookController extends Controller
 
     private function parseDate(mixed $value): ?Carbon
     {
-        if (! is_string($value) || trim($value) === '') {
+        if (!is_string($value) || trim($value) === '') {
             return null;
         }
 
@@ -371,7 +391,7 @@ class WooWebhookController extends Controller
 
     private function parseDateOnly(mixed $value): ?string
     {
-        if (! is_string($value) || trim($value) === '') {
+        if (!is_string($value) || trim($value) === '') {
             return null;
         }
 
@@ -384,13 +404,13 @@ class WooWebhookController extends Controller
 
     private function normalizeMetaData(mixed $metaData): array
     {
-        if (! is_array($metaData)) {
+        if (!is_array($metaData)) {
             return [];
         }
 
         $normalized = [];
         foreach ($metaData as $item) {
-            if (! is_array($item)) {
+            if (!is_array($item)) {
                 continue;
             }
 
@@ -418,7 +438,7 @@ class WooWebhookController extends Controller
 
     private function syncCalendarSlotForWooStatus(Order $order, string $wooStatus): void
     {
-        if (! $order->worker_id || ! $order->starts_at || ! $order->ends_at) {
+        if (!$order->worker_id || !$order->starts_at || !$order->ends_at) {
             return;
         }
 
@@ -454,7 +474,7 @@ class WooWebhookController extends Controller
             ->whereIn('status', ['reserved', 'booked', 'blocked'])
             ->where('starts_at', '<', $endsAtUtc)
             ->where('ends_at', '>', $startsAtUtc)
-            ->when($ignoreOrderId, fn ($q) => $q->where(fn ($qq) => $qq->whereNull('order_id')->orWhere('order_id', '!=', $ignoreOrderId)))
+            ->when($ignoreOrderId, fn($q) => $q->where(fn($qq) => $qq->whereNull('order_id')->orWhere('order_id', '!=', $ignoreOrderId)))
             ->exists();
     }
 }
