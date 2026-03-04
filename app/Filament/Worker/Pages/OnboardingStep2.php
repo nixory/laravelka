@@ -368,34 +368,7 @@ class OnboardingStep2 extends Page implements HasForms
                             ->required(),
                     ]),
 
-                Section::make('Что клиент получит от встречи')
-                    ->description('Напиши 3–5 пунктов для профиля')
-                    ->schema([
-                        Repeater::make('session_benefits')
-                            ->label('')
-                            ->schema([
-                                TextInput::make('icon')
-                                    ->label('Эмодзи')
-                                    ->maxLength(10)
-                                    ->placeholder('🎮')
-                                    ->default('✅'),
-                                TextInput::make('text')
-                                    ->label('Что получит клиент')
-                                    ->required()
-                                    ->maxLength(200)
-                                    ->placeholder('компания в любимой игре'),
-                            ])
-                            ->columns(2)
-                            ->minItems(3)
-                            ->maxItems(7)
-                            ->defaultItems(3)
-                            ->addActionLabel('Добавить пункт')
-                            ->collapsible()
-                            ->itemLabel(
-                                fn(array $state): ?string =>
-                                ($state['icon'] ?? '') . ' ' . ($state['text'] ?? '')
-                            ),
-                    ]),
+
             ])
             ->statePath('data');
     }
