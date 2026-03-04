@@ -2,8 +2,13 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Worker\Pages\OnboardingPending;
+use App\Filament\Worker\Pages\OnboardingStep1;
+use App\Filament\Worker\Pages\OnboardingStep2;
 use App\Filament\Worker\Pages\WorkerProfilePage;
+use App\Filament\Worker\Pages\WorkerRegistration;
 use App\Filament\Worker\Widgets\WorkerOverview;
+use App\Http\Middleware\WorkerOnboardingMiddleware;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -28,6 +33,7 @@ class WorkerPanelProvider extends PanelProvider
             ->id('worker')
             ->path('worker')
             ->login()
+            ->registration(WorkerRegistration::class)
             ->brandName('OPS eGirlz Воркеры')
             ->colors([
                 'primary' => Color::Amber,
@@ -127,6 +133,9 @@ HTML
             ->pages([
                 Pages\Dashboard::class,
                 WorkerProfilePage::class,
+                OnboardingStep1::class,
+                OnboardingPending::class,
+                OnboardingStep2::class,
             ])
             ->widgets([
                 WorkerOverview::class,
@@ -145,6 +154,7 @@ HTML
             ])
             ->authMiddleware([
                 Authenticate::class,
+                WorkerOnboardingMiddleware::class,
             ]);
     }
 }

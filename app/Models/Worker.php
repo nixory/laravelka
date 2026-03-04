@@ -26,6 +26,20 @@ class Worker extends Model
         'completed_orders',
         'is_active',
         'notes',
+        // Onboarding
+        'onboarding_status',
+        'onboarding_notes',
+        'age',
+        'description',
+        'audio_path',
+        'photo_main',
+        'photos_gallery',
+        'favorite_games',
+        'favorite_anime',
+        'experience',
+        'preferred_format',
+        'services',
+        'schedule_preferences',
     ];
 
     protected function casts(): array
@@ -33,7 +47,29 @@ class Worker extends Model
         return [
             'rating' => 'decimal:2',
             'is_active' => 'boolean',
+            'photos_gallery' => 'array',
+            'favorite_games' => 'array',
+            'favorite_anime' => 'array',
+            'services' => 'array',
+            'schedule_preferences' => 'array',
         ];
+    }
+
+    /* ── Onboarding helpers ── */
+
+    public function isOnboardingComplete(): bool
+    {
+        return $this->onboarding_status === 'completed';
+    }
+
+    public function isPendingApproval(): bool
+    {
+        return $this->onboarding_status === 'pending_approval';
+    }
+
+    public function isOnStep(string $step): bool
+    {
+        return $this->onboarding_status === $step;
     }
 
     public function user(): BelongsTo
