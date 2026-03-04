@@ -99,7 +99,7 @@ class OnboardingStep1 extends Page implements HasForms
                                     ->label('Подтвердить Telegram')
                                     ->color('primary')
                                     ->icon('heroicon-o-paper-airplane')
-                                    ->url(fn() => 'https://t.me/Egirlzru_bot?start=worker_' . $this->getWorker()?->id)
+                                    ->url(fn() => 'https://t.me/egirlz_bot?start=worker_' . $this->getWorker()?->id)
                                     ->openUrlInNewTab()
                             ),
 
