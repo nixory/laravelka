@@ -153,18 +153,41 @@ class Worker extends Model
     public function isAvailableWithinWindow(int $hours = 2): bool
     {
         $timezone = $this->timezone ?: 'Europe/Moscow';
-        $now = now()->timezone($timezone);
-        $end = $now->copy()->addHours($hours);
-        $current = $now->copy();
+        $nowLocal = now()->timezone($timezone);
+        $endLocal = $nowLocal->copy()->addHours($hours);
 
-        while ($current <= $end) {
+        $nowUtc = now()->utc();
+        $endUtc = $nowUtc->copy()->addHours($hours);
+
+        // 1. Check explicit calendar slots (CalendarSlot) for 'available' status within the window.
+        $hasAvailableSlot = $this->calendarSlots()
+            ->where('status', 'available')
+            ->where(function ($query) use ($nowUtc, $endUtc) {
+                $query->where(function ($q) use ($nowUtc, $endUtc) {
+                    // Slot starts within our window
+                    $q->where('starts_at', '>=', $nowUtc)
+                        ->where('starts_at', '<=', $endUtc);
+                })->orWhere(function ($q) use ($nowUtc, $endUtc) {
+                    // Slot is already ongoing and ends after now
+                    $q->where('starts_at', '<=', $nowUtc)
+                        ->where('ends_at', '>', $nowUtc);
+                });
+            })->exists();
+
+        if ($hasAvailableSlot) {
+            return true;
+        }
+
+        // 2. Check weekly recurring availability (WorkerAvailability)
+        $current = $nowLocal->copy();
+        while ($current <= $endLocal) {
             if ($this->isAvailableAt($current)) {
                 return true;
             }
             $current->addMinutes(15);
         }
 
-        if ($this->isAvailableAt($end)) {
+        if ($this->isAvailableAt($endLocal)) {
             return true;
         }
 
