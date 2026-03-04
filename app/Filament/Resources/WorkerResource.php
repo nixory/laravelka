@@ -43,44 +43,44 @@ class WorkerResource extends Resource
                             ->default(true)
                             ->live()
                             ->dehydrated(true)
-                            ->visible(fn (string $operation): bool => $operation === 'create'),
+                            ->visible(fn(string $operation): bool => $operation === 'create'),
                         Forms\Components\TextInput::make('account_name')
                             ->label('Имя аккаунта')
                             ->maxLength(255)
-                            ->default(fn (Get $get): string => (string) ($get('display_name') ?? ''))
+                            ->default(fn(Get $get): string => (string) ($get('display_name') ?? ''))
                             ->dehydrated(true)
-                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id')),
+                            ->visible(fn(Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && !$get('user_id')),
                         Forms\Components\TextInput::make('account_email')
                             ->label('Email для входа')
                             ->email()
                             ->maxLength(255)
                             ->unique(User::class, 'email')
-                            ->required(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id'))
+                            ->required(fn(Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && !$get('user_id'))
                             ->dehydrated(true)
-                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id')),
+                            ->visible(fn(Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && !$get('user_id')),
                         Forms\Components\TextInput::make('account_password')
                             ->label('Пароль')
                             ->password()
                             ->revealable()
                             ->minLength(8)
                             ->same('account_password_confirmation')
-                            ->required(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id'))
+                            ->required(fn(Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && !$get('user_id'))
                             ->dehydrated(true)
-                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id')),
+                            ->visible(fn(Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && !$get('user_id')),
                         Forms\Components\TextInput::make('account_password_confirmation')
                             ->label('Подтвердите пароль')
                             ->password()
                             ->revealable()
                             ->minLength(8)
-                            ->required(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id'))
+                            ->required(fn(Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && !$get('user_id'))
                             ->dehydrated(false)
-                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && ! $get('user_id')),
+                            ->visible(fn(Get $get, string $operation): bool => $operation === 'create' && (bool) $get('create_user_account') && !$get('user_id')),
                         Forms\Components\TextInput::make('current_account_email')
                             ->label('Текущий email для входа')
                             ->disabled()
                             ->dehydrated(false)
-                            ->formatStateUsing(fn (?Worker $record): string => (string) ($record?->user?->email ?? 'Аккаунт не привязан'))
-                            ->visible(fn (string $operation): bool => $operation === 'edit'),
+                            ->formatStateUsing(fn(?Worker $record): string => (string) ($record?->user?->email ?? 'Аккаунт не привязан'))
+                            ->visible(fn(string $operation): bool => $operation === 'edit'),
                         Forms\Components\TextInput::make('new_account_password')
                             ->label('Новый пароль')
                             ->password()
@@ -88,14 +88,14 @@ class WorkerResource extends Resource
                             ->minLength(8)
                             ->same('new_account_password_confirmation')
                             ->dehydrated(false)
-                            ->visible(fn (string $operation): bool => $operation === 'edit'),
+                            ->visible(fn(string $operation): bool => $operation === 'edit'),
                         Forms\Components\TextInput::make('new_account_password_confirmation')
                             ->label('Подтвердите новый пароль')
                             ->password()
                             ->revealable()
                             ->minLength(8)
                             ->dehydrated(false)
-                            ->visible(fn (string $operation): bool => $operation === 'edit'),
+                            ->visible(fn(string $operation): bool => $operation === 'edit'),
                     ])
                     ->columnSpanFull(),
                 Forms\Components\TextInput::make('display_name')
@@ -170,6 +170,21 @@ class WorkerResource extends Resource
                     ->defaultItems(0)
                     ->collapsible()
                     ->columnSpanFull(),
+                Forms\Components\Section::make('Onboarding')
+                    ->schema([
+                        Forms\Components\Select::make('onboarding_status')
+                            ->options([
+                                'step1' => 'Шаг 1 (Заполнение)',
+                                'pending_approval' => 'Ожидает проверки',
+                                'step2' => 'Шаг 2 (Услуги)',
+                                'completed' => 'Завершён',
+                            ])
+                            ->default('completed')
+                            ->required(),
+                        Forms\Components\Textarea::make('onboarding_notes')
+                            ->label('Заметки админа (для доработки)')
+                            ->columnSpanFull(),
+                    ]),
                 Forms\Components\Textarea::make('notes')
                     ->columnSpanFull(),
             ]);
@@ -194,6 +209,23 @@ class WorkerResource extends Resource
                         'warning' => 'busy',
                         'danger' => 'paused',
                     ]),
+                Tables\Columns\TextColumn::make('onboarding_status')
+                    ->label('Onboarding')
+                    ->badge()
+                    ->colors([
+                        'gray' => 'step1',
+                        'warning' => 'pending_approval',
+                        'primary' => 'step2',
+                        'success' => 'completed',
+                    ])
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'step1' => 'Шаг 1',
+                        'pending_approval' => 'Проверка',
+                        'step2' => 'Шаг 2',
+                        'completed' => 'Готов',
+                        default => $state,
+                    })
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('city')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('timezone')
@@ -229,9 +261,37 @@ class WorkerResource extends Resource
                         '1' => 'Активна',
                         '0' => 'Неактивна',
                     ]),
+                SelectFilter::make('onboarding_status')
+                    ->options([
+                        'step1' => 'Шаг 1',
+                        'pending_approval' => 'На проверке',
+                        'step2' => 'Шаг 2',
+                        'completed' => 'Завершён',
+                    ]),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('approve')
+                    ->label('Approve')
+                    ->color('success')
+                    ->icon('heroicon-o-check-circle')
+                    ->visible(fn(Worker $record): bool => $record->onboarding_status === 'pending_approval')
+                    ->requiresConfirmation()
+                    ->action(function (Worker $record) {
+                        $record->update(['onboarding_status' => 'step2']);
+
+                        // Если у девушки уже привязан Telegram, отправить уведомление
+                        if ($record->telegram_chat_id) {
+                            try {
+                                \Illuminate\Support\Facades\Http::post("https://api.telegram.org/bot" . env('TELEGRAM_BOT_TOKEN') . "/sendMessage", [
+                                    'chat_id' => $record->telegram_chat_id,
+                                    'text' => "🎉 Твоя анкета (Шаг 1) одобрена!\n\nПереходи к следующему шагу настройки профиля (Услуги и расписание): " . env('APP_URL') . "/worker",
+                                ]);
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error('Failed to send approve notification: ' . $e->getMessage());
+                            }
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

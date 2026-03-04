@@ -11,6 +11,7 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -84,11 +85,23 @@ class OnboardingStep1 extends Page implements HasForms
                             ->placeholder('18'),
 
                         TextInput::make('telegram')
-                            ->label('Telegram (@username)')
+                            ->label('Telegram')
                             ->prefix('@')
                             ->required()
                             ->maxLength(100)
-                            ->placeholder('username'),
+                            ->placeholder('Привяжи аккаунт ->')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->hint(fn() => $this->getWorker()?->telegram_chat_id ? '✅ Привязан' : '❌ Не привязан')
+                            ->hintColor(fn() => $this->getWorker()?->telegram_chat_id ? 'success' : 'danger')
+                            ->suffixAction(
+                                FormAction::make('confirm_tg')
+                                    ->label('Подтвердить Telegram')
+                                    ->color('primary')
+                                    ->icon('heroicon-o-paper-airplane')
+                                    ->url(fn() => 'https://t.me/Egirlzru_bot?start=worker_' . $this->getWorker()?->id)
+                                    ->openUrlInNewTab()
+                            ),
 
                         TextInput::make('city')
                             ->label('Город')
@@ -236,12 +249,20 @@ class OnboardingStep1 extends Page implements HasForms
             return;
         }
 
+        if (!$worker->telegram_chat_id) {
+            Notification::make()
+                ->title('Telegram не подтверждён')
+                ->body('Пожалуйста, нажми "Подтвердить Telegram" и запусти бота перед отправкой анкеты.')
+                ->danger()
+                ->send();
+            return;
+        }
+
         $data = $this->form->getState();
 
         $worker->update([
             'display_name' => $data['display_name'],
             'age' => $data['age'],
-            'telegram' => $data['telegram'],
             'city' => $data['city'],
             'timezone' => $data['timezone'],
             'description' => $data['description'],

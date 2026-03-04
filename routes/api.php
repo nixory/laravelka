@@ -30,6 +30,9 @@ Route::post('/bookings/holds/release', [BookingController::class, 'release'])
 Route::post('/bot/link-order', [BotController::class, 'linkOrder'])
     ->middleware('throttle:60,1');
 
+Route::post('/bot/link-worker', [BotController::class, 'linkWorker'])
+    ->middleware('throttle:60,1');
+
 // Client-facing order status (for thank you page polling)
 Route::get('/client/order-status', [\App\Http\Controllers\Api\ClientOrderController::class, 'status'])
     ->middleware('throttle:120,1');
