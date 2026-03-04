@@ -150,6 +150,27 @@ class Worker extends Model
         return false;
     }
 
+    public function isAvailableWithinWindow(int $hours = 2): bool
+    {
+        $timezone = $this->timezone ?: 'Europe/Moscow';
+        $now = now()->timezone($timezone);
+        $end = $now->copy()->addHours($hours);
+        $current = $now->copy();
+
+        while ($current <= $end) {
+            if ($this->isAvailableAt($current)) {
+                return true;
+            }
+            $current->addMinutes(15);
+        }
+
+        if ($this->isAvailableAt($end)) {
+            return true;
+        }
+
+        return false;
+    }
+
     public function confirmedPayoutBalance(): float
     {
         $credits = (float) $this->payoutTransactions()

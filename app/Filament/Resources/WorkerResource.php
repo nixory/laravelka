@@ -229,17 +229,23 @@ class WorkerResource extends Resource
                             ->label('Основное фото')
                             ->image()
                             ->disk('public')
-                            ->directory('workers/photos'),
+                            ->directory('workers/photos')
+                            ->downloadable()
+                            ->openable(),
                         Forms\Components\FileUpload::make('photos_gallery')
                             ->label('Дополнительные фото')
                             ->image()
                             ->multiple()
                             ->disk('public')
-                            ->directory('workers/photos'),
+                            ->directory('workers/photos')
+                            ->downloadable()
+                            ->openable(),
                         Forms\Components\FileUpload::make('audio_path')
                             ->label('Аудио приветствие')
                             ->disk('public')
                             ->directory('workers/audio')
+                            ->downloadable()
+                            ->openable()
                             ->columnSpanFull(),
                     ])->columns(3),
                 Forms\Components\Section::make('Шаг 2: Услуги и расписание')

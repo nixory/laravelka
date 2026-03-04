@@ -10,3 +10,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command('ops:assign-pending-orders --limit=100')->everyMinute();
 Schedule::command('ops:dispatch-alerts')->everyMinute();
+Schedule::command('ops:update-worker-statuses')->everyMinute();
+
