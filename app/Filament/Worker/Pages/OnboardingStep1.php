@@ -74,7 +74,8 @@ class OnboardingStep1 extends Page implements HasForms
                             ->label('Ник / имя')
                             ->required()
                             ->maxLength(100)
-                            ->placeholder('Например: NekoLera'),
+                            ->placeholder('Например: NekoLera')
+                            ->helperText('Это имя будут видеть клиенты. Выбери что-то запоминающееся.'),
 
                         TextInput::make('age')
                             ->label('Возраст')
@@ -82,7 +83,8 @@ class OnboardingStep1 extends Page implements HasForms
                             ->required()
                             ->minValue(18)
                             ->maxValue(99)
-                            ->placeholder('18'),
+                            ->placeholder('18')
+                            ->helperText('Видно только модераторам.'),
 
                         TextInput::make('telegram')
                             ->label('Telegram')
@@ -94,12 +96,13 @@ class OnboardingStep1 extends Page implements HasForms
                             ->dehydrated(false)
                             ->hint(fn() => $this->getWorker()?->telegram_chat_id ? '✅ Привязан' : '❌ Не привязан')
                             ->hintColor(fn() => $this->getWorker()?->telegram_chat_id ? 'success' : 'danger')
+                            ->helperText('Телеграм нужен, чтобы клиенты и платформа могли связываться с тобой по заказам.')
                             ->suffixAction(
                                 FormAction::make('confirm_tg')
                                     ->label('Подтвердить Telegram')
                                     ->color('primary')
                                     ->icon('heroicon-o-paper-airplane')
-                                    ->url(fn() => 'https://t.me/egirlz_bot?start=worker_' . $this->getWorker()?->id)
+                                    ->url(fn() => rtrim(config('services.telegram.bot_url', 'https://t.me/egirlz_bot'), '/') . '?start=worker_' . $this->getWorker()?->id)
                                     ->openUrlInNewTab()
                             ),
 
@@ -138,7 +141,8 @@ class OnboardingStep1 extends Page implements HasForms
                             ->minLength(20)
                             ->maxLength(2000)
                             ->rows(4)
-                            ->placeholder('Какой у тебя вайб? Что любишь? Какие игры/жанры?'),
+                            ->placeholder('Какой у тебя вайб? Что любишь? Какие игры/жанры?')
+                            ->helperText('Профили с подробным описанием получают до 40% больше заказов.'),
 
                         Select::make('experience')
                             ->label('Опыт')
@@ -174,7 +178,8 @@ class OnboardingStep1 extends Page implements HasForms
                             ->imageResizeMode('cover')
                             ->imageCropAspectRatio('3:4')
                             ->imageResizeTargetWidth(600)
-                            ->imageResizeTargetHeight(800),
+                            ->imageResizeTargetHeight(800)
+                            ->helperText('Профили с четким главным фото получают значительно больше заказов.'),
 
                         FileUpload::make('photos_gallery')
                             ->label('Дополнительные фото (до 5)')
@@ -184,7 +189,8 @@ class OnboardingStep1 extends Page implements HasForms
                             ->maxSize(5120)
                             ->disk('public')
                             ->directory('workers/photos')
-                            ->reorderable(),
+                            ->reorderable()
+                            ->helperText('Много фото увеличивают доверие и конверсию профиля.'),
                     ])
                     ->columns(2),
 
@@ -196,7 +202,8 @@ class OnboardingStep1 extends Page implements HasForms
                             ->acceptedFileTypes(['audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/webm'])
                             ->maxSize(10240)
                             ->disk('public')
-                            ->directory('workers/audio'),
+                            ->directory('workers/audio')
+                            ->helperText('Голосовое приветствие помогает клиентам выбрать тебя быстрее.'),
                     ]),
 
                 Section::make('Любимые игры')
@@ -216,7 +223,8 @@ class OnboardingStep1 extends Page implements HasForms
                             ->defaultItems(1)
                             ->addActionLabel('Добавить игру')
                             ->collapsible()
-                            ->itemLabel(fn(array $state): ?string => $state['name'] ?? null),
+                            ->itemLabel(fn(array $state): ?string => $state['name'] ?? null)
+                            ->helperText('Больше игр = больше потенциальных клиентов.'),
                     ]),
 
                 Section::make('Любимые аниме / фильмы')
@@ -235,7 +243,8 @@ class OnboardingStep1 extends Page implements HasForms
                             ->defaultItems(0)
                             ->addActionLabel('Добавить')
                             ->collapsible()
-                            ->itemLabel(fn(array $state): ?string => $state['title'] ?? null),
+                            ->itemLabel(fn(array $state): ?string => $state['title'] ?? null)
+                            ->helperText('Общие интересы увеличивают количество запросов на сессии.'),
                     ]),
             ])
             ->statePath('data');
@@ -290,11 +299,11 @@ class OnboardingStep1 extends Page implements HasForms
 
     private function notifyAdmins(Worker $worker): void
     {
-        $botToken = config('services.telegram.bot_token');
+        $botToken = config('services.telegram.admin_bot_token') ?: config('services.telegram.bot_token');
         $adminChatId = config('services.telegram.admin_chat_id');
 
         if (!$botToken || !$adminChatId) {
-            Log::warning('Telegram bot_token or admin_chat_id not configured for onboarding notification.');
+            Log::warning('Telegram admin_bot_token or admin_chat_id not configured for onboarding notification.');
             return;
         }
 

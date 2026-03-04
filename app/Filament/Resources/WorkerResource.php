@@ -282,13 +282,16 @@ class WorkerResource extends Resource
 
                         // Если у девушки уже привязан Telegram, отправить уведомление
                         if ($record->telegram_chat_id) {
-                            try {
-                                \Illuminate\Support\Facades\Http::post("https://api.telegram.org/bot" . env('TELEGRAM_BOT_TOKEN') . "/sendMessage", [
-                                    'chat_id' => $record->telegram_chat_id,
-                                    'text' => "🎉 Твоя анкета (Шаг 1) одобрена!\n\nПереходи к следующему шагу настройки профиля (Услуги и расписание): " . env('APP_URL') . "/worker",
-                                ]);
-                            } catch (\Exception $e) {
-                                \Illuminate\Support\Facades\Log::error('Failed to send approve notification: ' . $e->getMessage());
+                            $botToken = config('services.telegram.client_bot_token') ?: config('services.telegram.bot_token');
+                            if ($botToken) {
+                                try {
+                                    \Illuminate\Support\Facades\Http::post("https://api.telegram.org/bot{$botToken}/sendMessage", [
+                                        'chat_id' => $record->telegram_chat_id,
+                                        'text' => "🎉 Твоя анкета (Шаг 1) одобрена!\n\nПереходи к следующему шагу настройки профиля (Услуги и расписание): " . env('APP_URL') . "/worker",
+                                    ]);
+                                } catch (\Exception $e) {
+                                    \Illuminate\Support\Facades\Log::error('Failed to send approve notification: ' . $e->getMessage());
+                                }
                             }
                         }
                     }),
