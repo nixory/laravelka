@@ -96,21 +96,19 @@ class OnboardingStep2 extends Page implements HasForms
                             ->label('')
                             ->options([
                                 'webcam' => 'Включить веб-камеру',
-                                'photos' => 'Отправлять фото или кружочки в Telegram во время сессии',
+
                                 'movies' => 'Смотреть фильмы или аниме вместе',
                                 'night' => 'Доступна ночью',
                             ])
                             ->descriptions([
                                 'webcam' => 'Профили с веб-камерой обычно получают больше заказов, потому что клиентам легче доверять и чувствовать связь.',
-                                'photos' => 'Это делает общение более личным и часто увеличивает чаевые и повторные заказы.',
+
                                 'movies' => 'Такие сессии обычно длятся дольше и часто превращаются в постоянные встречи.',
                                 'night' => 'Ночью спрос обычно выше и конкуренция ниже, поэтому легче получать заказы.',
                             ])
                             ->columns(1),
 
-                        Toggle::make('trial_enabled')
-                            ->label('Предлагать пробный сеанс (99₽ / 10 мин)')
-                            ->helperText('Клиент может попробовать короткую мини-сессию перед полной бронью.'),
+
                     ]),
 
                 Section::make('Уровень флирта')
@@ -121,16 +119,16 @@ class OnboardingStep2 extends Page implements HasForms
                             ->options([
                                 'friendly' => 'Только дружелюбное общение',
                                 'playful' => 'Лёгкий игривый флирт',
-                                'teasing' => 'Комфортно с поддразниванием',
+                                'teasing' => 'Комфортно с флиртом',
                             ])
                             ->descriptions([
                                 'friendly' => 'без флирта',
-                                'playful' => 'комплименты, шутки, лёгкий teasing',
+                                'playful' => 'комплименты, шутки, лёгкое поддразнивание',
                                 'teasing' => 'более смелый и игривый вайб',
                             ]),
                     ]),
 
-                Section::make('Стиль персонажа')
+                Section::make('Твой стиль')
                     ->description('Разные стили общения привлекают разных клиентов.')
                     ->schema([
                         CheckboxList::make('character_styles')
@@ -147,7 +145,7 @@ class OnboardingStep2 extends Page implements HasForms
                     ]),
 
                 Section::make('Дополнительные платные услуги')
-                    ->description('Это дополнительные услуги, за которые ты можешь брать отдельную плату во время сессий.')
+                    ->description('Это дополнительные услуги, которые либо будут дополнять тарифы и увеличивать их базовую стоимость, либо будут дополнительными платными опциями. ( чем больше выбрано - тем лучше )')
                     ->schema([
                         Section::make('Голос и ASMR')
                             ->collapsed()
@@ -256,8 +254,8 @@ class OnboardingStep2 extends Page implements HasForms
                             ->label('Тип контента')
                             ->placeholder('Выберите вариант')
                             ->options([
-                                'sfw' => 'SFW',
-                                'mixed' => 'Mixed',
+                                'sfw' => 'без 18+',
+                                'mixed' => 'около 18+ ( нету прямого 18+ контента )',
                                 'nsfw' => '18+ (доступно только для клиентов 18+)',
                             ])
                             ->visible(fn(\Filament\Forms\Get $get) => $get('fan_club_enabled')),
@@ -334,7 +332,7 @@ class OnboardingStep2 extends Page implements HasForms
                             ]),
                     ]),
 
-                Section::make('Контент для промо')
+                Section::make('Контент для твоего продвижения')
                     ->description('Мы никогда не используем контент без твоего разрешения.')
                     ->schema([
                         Select::make('content_permission')
@@ -342,8 +340,8 @@ class OnboardingStep2 extends Page implements HasForms
                             ->placeholder('Выберите вариант')
                             ->options([
                                 'create_videos' => 'Я могу записывать видео для продвижения',
-                                'record_clips' => 'Платформа может записывать клипы из сессий',
-                                'no_content' => 'Я не хочу участвовать в промо',
+                                'record_clips' => 'Я буду предоставлять контент для продвижения',
+                                'no_content' => 'Я не хочу участвовать в продвижении',
                             ]),
                     ]),
 
