@@ -39,6 +39,7 @@ class Worker extends Model
         'experience',
         'preferred_format',
         'services',
+        'services_custom',
         'schedule_preferences',
     ];
 
@@ -51,6 +52,7 @@ class Worker extends Model
             'favorite_games' => 'array',
             'favorite_anime' => 'array',
             'services' => 'array',
+            'services_custom' => 'array',
             'schedule_preferences' => 'array',
         ];
     }
