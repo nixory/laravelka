@@ -16,6 +16,8 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class OnboardingStep2 extends Page implements HasForms
 {
@@ -41,6 +43,7 @@ class OnboardingStep2 extends Page implements HasForms
             $target = match ($worker->onboarding_status) {
                 'step1' => '/worker/onboarding-step-1',
                 'pending_approval' => '/worker/onboarding-pending',
+                'pending_publication' => '/worker/onboarding-success',
                 'completed' => '/worker',
                 default => '/worker/onboarding-step-1',
             };
@@ -423,16 +426,47 @@ class OnboardingStep2 extends Page implements HasForms
             'schedule_preferences' => [
                 'slots' => $data['schedule_slots'] ?? [],
             ],
-            'onboarding_status' => 'completed',
+            'onboarding_status' => 'pending_publication',
         ]);
 
+        $this->notifyAdmins($worker);
+
         Notification::make()
-            ->title('Профиль готов! 🎉')
-            ->body('Твоя анкета готова! Профили с веб-камерой, множеством фото и дополнительными услугами обычно зарабатывают значительно больше.')
+            ->title('Анкета отправлена на публикацию! 🎉')
+            ->body('Спасибо! Ожидай уведомления в Телеграм, когда профиль будет опубликован.')
             ->success()
             ->send();
 
-        $this->redirect('/worker');
+        $this->redirect('/worker/onboarding-success');
+    }
+
+    private function notifyAdmins(Worker $worker): void
+    {
+        $botToken = config('services.telegram.admin_bot_token') ?: config('services.telegram.bot_token');
+        $adminChatId = config('services.telegram.admin_chat_id');
+
+        if (!$botToken || !$adminChatId) {
+            Log::warning('Telegram admin_bot_token or admin_chat_id not configured for onboarding step2 notification.');
+            return;
+        }
+
+        $opsUrl = config('app.url', 'https://ops.egirlz.chat');
+        $text = "🎉 *Анкета E-Girl готова к публикации!*\n\n"
+            . "👩 *Имя:* {$worker->display_name}\n"
+            . "📱 *Telegram:* @{$worker->telegram}\n\n"
+            . "Девушка заполнила Шаг 2 (услуги, прайс, расписание). Проверь анкету и опубликуй профиль!\n\n"
+            . "[Открыть в OPS]({$opsUrl}/admin/workers/{$worker->id}/edit)";
+
+        try {
+            Http::post("https://api.telegram.org/bot{$botToken}/sendMessage", [
+                'chat_id' => $adminChatId,
+                'text' => $text,
+                'parse_mode' => 'Markdown',
+                'disable_web_page_preview' => true,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to send onboarding step2 TG notification: ' . $e->getMessage());
+        }
     }
 
     private function getWorker(): ?Worker
