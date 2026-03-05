@@ -112,7 +112,7 @@ class BookingController extends Controller
             return [$hold, null];
         }, 3);
 
-        if ($error !== null || ! $hold) {
+        if ($error !== null || !$hold) {
             return response()->json([
                 'ok' => false,
                 'message' => $error ?? 'Could not create hold.',
@@ -153,27 +153,26 @@ class BookingController extends Controller
         [$confirmed, $error] = DB::transaction(function () use ($token, $orderId): array {
             $hold = BookingHold::query()
                 ->where('token', $token)
-                ->whereNull('released_at')
                 ->whereNull('confirmed_at')
                 ->lockForUpdate()
                 ->first();
 
-            if (! $hold) {
-                return [null, 'Hold not found or expired.'];
+            if (!$hold) {
+                return [null, 'Hold not found.'];
             }
 
-            if ($hold->expires_at->isPast()) {
-                $hold->released_at = now();
-                $hold->save();
-                return [null, 'Hold not found or expired.'];
-            }
+            // If the hold was released because of expiration or 'pending' status,
+            // we STILL allow confirmation IF the slot is free.
+            // We just shouldn't allow it if another confirmed booking took it.
 
-            if ($this->hasCalendarOverlap(
-                (int) $hold->worker_id,
-                $hold->starts_at,
-                $hold->ends_at,
-                $orderId
-            )) {
+            if (
+                $this->hasCalendarOverlap(
+                    (int) $hold->worker_id,
+                    $hold->starts_at,
+                    $hold->ends_at,
+                    $orderId
+                )
+            ) {
                 return [null, 'Slot is not available.'];
             }
 
@@ -196,16 +195,19 @@ class BookingController extends Controller
             }
             $hold->save();
 
-            return [[
-                'worker_id' => (int) $hold->worker_id,
-                'date' => $hold->starts_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('Y-m-d'),
-                'start' => $hold->starts_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('H:i'),
-                'end' => $hold->ends_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('H:i'),
-                'order_id' => $orderId,
-            ], null];
+            return [
+                [
+                    'worker_id' => (int) $hold->worker_id,
+                    'date' => $hold->starts_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('Y-m-d'),
+                    'start' => $hold->starts_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('H:i'),
+                    'end' => $hold->ends_at->copy()->setTimezone(self::DISPLAY_TIMEZONE)->format('H:i'),
+                    'order_id' => $orderId,
+                ],
+                null
+            ];
         }, 3);
 
-        if ($error !== null || ! is_array($confirmed)) {
+        if ($error !== null || !is_array($confirmed)) {
             return response()->json([
                 'ok' => false,
                 'message' => $error ?? 'Hold not found or expired.',
@@ -231,7 +233,7 @@ class BookingController extends Controller
 
         $released = 0;
 
-        if (! empty($data['token'])) {
+        if (!empty($data['token'])) {
             $token = (string) $data['token'];
             $released += BookingHold::query()
                 ->where('token', $token)
@@ -242,7 +244,7 @@ class BookingController extends Controller
             Cache::forget($this->holdTokenKey($token));
         }
 
-        if (! empty($data['order_id'])) {
+        if (!empty($data['order_id'])) {
             $orderId = (int) $data['order_id'];
             BookingHold::query()
                 ->where('order_id', $orderId)
@@ -353,7 +355,7 @@ class BookingController extends Controller
                     'start' => $start,
                     'end' => $end,
                     'date' => $slotDate,
-                    'label' => $start.' - '.$end,
+                    'label' => $start . ' - ' . $end,
                     'available' => true,
                 ];
 
@@ -361,7 +363,7 @@ class BookingController extends Controller
             }
         }
 
-        usort($slots, fn ($a, $b) => strcmp((string) $a['start'], (string) $b['start']));
+        usort($slots, fn($a, $b) => strcmp((string) $a['start'], (string) $b['start']));
 
         return array_values(array_map('unserialize', array_unique(array_map('serialize', $slots))));
     }
@@ -371,14 +373,13 @@ class BookingController extends Controller
         Carbon $startsAtUtc,
         Carbon $endsAtUtc,
         ?int $ignoreOrderId = null
-    ): bool
-    {
+    ): bool {
         return CalendarSlot::query()
             ->where('worker_id', $workerId)
             ->whereIn('status', ['reserved', 'booked', 'blocked'])
             ->where('starts_at', '<', $endsAtUtc)
             ->where('ends_at', '>', $startsAtUtc)
-            ->when($ignoreOrderId, fn ($q) => $q->where(fn ($qq) => $qq->whereNull('order_id')->orWhere('order_id', '!=', $ignoreOrderId)))
+            ->when($ignoreOrderId, fn($q) => $q->where(fn($qq) => $qq->whereNull('order_id')->orWhere('order_id', '!=', $ignoreOrderId)))
             ->exists();
     }
 
@@ -397,8 +398,8 @@ class BookingController extends Controller
     private function parseRangeToUtc(string $date, string $start, string $end): ?array
     {
         try {
-            $startsAt = Carbon::createFromFormat('Y-m-d H:i', $date.' '.$start, self::DISPLAY_TIMEZONE);
-            $endsAt = Carbon::createFromFormat('Y-m-d H:i', $date.' '.$end, self::DISPLAY_TIMEZONE);
+            $startsAt = Carbon::createFromFormat('Y-m-d H:i', $date . ' ' . $start, self::DISPLAY_TIMEZONE);
+            $endsAt = Carbon::createFromFormat('Y-m-d H:i', $date . ' ' . $end, self::DISPLAY_TIMEZONE);
 
             if ($endsAt->lessThanOrEqualTo($startsAt)) {
                 $endsAt->addDay();
@@ -440,7 +441,7 @@ class BookingController extends Controller
 
     private function holdTokenKey(string $token): string
     {
-        return 'ops_booking_hold_token_'.$token;
+        return 'ops_booking_hold_token_' . $token;
     }
 
     private function authorizeRequest(Request $request): void
