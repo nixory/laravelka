@@ -34,7 +34,7 @@ class WorkerPanelProvider extends PanelProvider
             ->path('worker')
             ->login()
             ->registration(WorkerRegistration::class)
-            ->brandName('OPS eGirlz Воркеры')
+            ->brandName('EGIRLZ')
             ->colors([
                 'primary' => Color::Amber,
             ])

@@ -153,17 +153,20 @@ class BookingController extends Controller
         [$confirmed, $error] = DB::transaction(function () use ($token, $orderId): array {
             $hold = BookingHold::query()
                 ->where('token', $token)
+                ->whereNull('released_at')
                 ->whereNull('confirmed_at')
                 ->lockForUpdate()
                 ->first();
 
             if (!$hold) {
-                return [null, 'Hold not found.'];
+                return [null, 'Hold not found or expired.'];
             }
 
-            // If the hold was released because of expiration or 'pending' status,
-            // we STILL allow confirmation IF the slot is free.
-            // We just shouldn't allow it if another confirmed booking took it.
+            if ($hold->expires_at->isPast()) {
+                $hold->released_at = now();
+                $hold->save();
+                return [null, 'Hold not found or expired.'];
+            }
 
             if (
                 $this->hasCalendarOverlap(
