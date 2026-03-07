@@ -24,7 +24,7 @@ class WooWebhookController extends Controller
     ): JsonResponse {
         $this->authorizeRequest($request);
 
-        $payload = $request->validate(  
+        $payload = $request->validate([
             'id' => ['required'],
         ]);
 
